@@ -256,7 +256,12 @@ if __name__ == "__main__":
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
+    parser.add_argument("--debug",type=int, default=0, help="set 1 for using mini dataset for debug")
     args = parser.parse_args()
+
+    if args.debug != 0:
+        SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train_mike.json")))
+        SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val_mike.json")))
 
     # setting
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu

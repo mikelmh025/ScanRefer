@@ -65,6 +65,8 @@ class Pointnet2Backbone(nn.Module):
         self.fp1 = PointnetFPModule(mlp=[256+256,256,256])
         self.fp2 = PointnetFPModule(mlp=[256+256,256,256])
 
+        self.multhead_attn = nn.MultiheadAttention(256,2)
+
     def _break_up_pc(self, pc):
         xyz = pc[..., :3].contiguous()
         features = pc[..., 3:].transpose(1, 2).contiguous() if pc.size(-1) > 3 else None
@@ -90,7 +92,8 @@ class Pointnet2Backbone(nn.Module):
                 XXX_features: float32 Tensor of shape (B,K,D)
                 XXX-inds: int64 Tensor of shape (B,K) values in [0,N-1]
         """
-        
+        # import sys
+
         pointcloud = data_dict["point_clouds"]
 
         batch_size = pointcloud.shape[0]
@@ -98,23 +101,40 @@ class Pointnet2Backbone(nn.Module):
         xyz, features = self._break_up_pc(pointcloud)
 
         # --------- 4 SET ABSTRACTION LAYERS ---------
+        # print("1 xyz",xyz.shape)
+        
         xyz, features, fps_inds = self.sa1(xyz, features)
         data_dict['sa1_inds'] = fps_inds
         data_dict['sa1_xyz'] = xyz
         data_dict['sa1_features'] = features
+        # print("2 xyz",xyz.shape)
 
         xyz, features, fps_inds = self.sa2(xyz, features) # this fps_inds is just 0,1,...,1023
         data_dict['sa2_inds'] = fps_inds
         data_dict['sa2_xyz'] = xyz
         data_dict['sa2_features'] = features
+        # print("3 xyz",xyz.shape)
 
         xyz, features, fps_inds = self.sa3(xyz, features) # this fps_inds is just 0,1,...,511
         data_dict['sa3_xyz'] = xyz
         data_dict['sa3_features'] = features
+        # print("4 xyz",xyz.shape)
 
         xyz, features, fps_inds = self.sa4(xyz, features) # this fps_inds is just 0,1,...,255
         data_dict['sa4_xyz'] = xyz
         data_dict['sa4_features'] = features
+
+        lang_emb = torch.stack([data_dict["lang_emb"],data_dict["lang_emb"],data_dict["lang_emb"]],2)
+        # print("test",test.shape)
+        # print("lan: ",data_dict["lang_emb"].shape, "xyz", xyz.shape)
+
+        # att attention layer 
+        attn_out, attn_weight = self.multhead_attn(lang_emb.transpose(1, 2), xyz.transpose(1, 2), xyz.transpose(1, 2))
+        xyz = attn_out.transpose(1,2)
+
+        # print("test1 test2 :", test1.shape)
+        # print("5 xyz",xyz.shape)
+        # sys.exit()
 
         # --------- 2 FEATURE UPSAMPLING LAYERS --------
         features = self.fp1(data_dict['sa3_xyz'], data_dict['sa4_xyz'], data_dict['sa3_features'], data_dict['sa4_features'])

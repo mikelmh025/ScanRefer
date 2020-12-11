@@ -25,7 +25,7 @@ from models.refnet import RefNet
 from data.scannet.model_util_scannet import ScannetDatasetConfig
 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
-SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
+SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val_mike.json")))
 
 def get_dataloader(args, scanrefer, all_scene_list, split, config):
     dataset = ScannetReferenceDataset(
@@ -59,7 +59,7 @@ def get_model(args, config):
     ).cuda()
 
     model_name = "model_last.pth" if args.detection else "model.pth"
-    path = os.path.join(CONF.PATH.OUTPUT, args.folder, model_name)
+    path = os.path.join(CONF.PATH.BASE, args.folder, model_name)
     model.load_state_dict(torch.load(path), strict=False)
     model.eval()
 
@@ -120,8 +120,8 @@ def eval_ref(args):
 
     # evaluate
     print("evaluating...")
-    score_path = os.path.join(CONF.PATH.OUTPUT, args.folder, "scores.p")
-    pred_path = os.path.join(CONF.PATH.OUTPUT, args.folder, "predictions.p")
+    score_path = os.path.join(CONF.PATH.BASE, args.folder, "scores.p")
+    pred_path = os.path.join(CONF.PATH.BASE, args.folder, "predictions.p")
     gen_flag = (not os.path.exists(score_path)) or args.force or args.repeat > 1
     if gen_flag:
         ref_acc_all = []

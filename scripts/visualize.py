@@ -27,7 +27,7 @@ from lib.loss_helper import get_loss
 from lib.config import CONF
 
 # data
-SCANNET_ROOT = "/mnt/canis/Datasets/ScanNet/public/v2/scans/" # TODO point this to your scannet data
+SCANNET_ROOT = "data/scannet/scans/" # TODO point this to your scannet data
 SCANNET_MESH = os.path.join(SCANNET_ROOT, "{}/{}_vh_clean_2.ply") # scene_id, scene_id 
 SCANNET_META = os.path.join(SCANNET_ROOT, "{}/{}.txt") # scene_id, scene_id 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
@@ -65,7 +65,7 @@ def get_model(args):
         input_feature_dim=input_channels
     ).cuda()
 
-    path = os.path.join(CONF.PATH.OUTPUT, args.folder, "model.pth")
+    path = os.path.join(CONF.PATH.BASE, args.folder, "model.pth")
     model.load_state_dict(torch.load(path), strict=False)
     model.eval()
 
@@ -255,7 +255,9 @@ def write_bbox(bbox, mode, output_file):
         indices.extend(cyl_ind)
         colors.extend(cyl_color)
 
-    write_ply(verts, colors, indices, output_file)
+    # print("in scenes color", colors)
+    write_ply_rgb(np.array(verts), np.array(colors), output_file)
+    # write_ply(verts, colors, indices, output_file)
 
 def read_mesh(filename):
     """ read XYZ for each vertex.
@@ -323,7 +325,7 @@ def align_mesh(scene_id):
     return mesh
 
 def dump_results(args, scanrefer, data, config):
-    dump_dir = os.path.join(CONF.PATH.OUTPUT, args.folder, "vis")
+    dump_dir = os.path.join(CONF.PATH.BASE, args.folder, "vis")
     os.makedirs(dump_dir, exist_ok=True)
 
     # from inputs
@@ -348,9 +350,9 @@ def dump_results(args, scanrefer, data, config):
     pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
     # reference
     pred_ref_scores = data["cluster_ref"].detach().cpu().numpy()
-    pred_ref_scores_softmax = F.softmax(data["cluster_ref"] * torch.argmax(data['objectness_scores'], 2).float() * data['pred_mask'], dim=1).detach().cpu().numpy()
+    pred_ref_scores_softmax = F.softmax(data["cluster_ref"] * torch.argmax(data['objectness_scores'], 2).float() * data['objectness_mask'], dim=1).detach().cpu().numpy()
     # post-processing
-    nms_masks = data['pred_mask'].detach().cpu().numpy() # B,num_proposal
+    nms_masks = data['objectness_mask'].detach().cpu().numpy() # B,num_proposal
     
     # ground truth
     gt_center = data['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
@@ -377,7 +379,7 @@ def dump_results(args, scanrefer, data, config):
             # # Dump the original scene point clouds
             mesh = align_mesh(scene_id)
             mesh.write(os.path.join(scene_dump_dir, 'mesh.ply'))
-
+            print("pcl_color[i] in pc.ply", pcl_color[i])
             write_ply_rgb(point_clouds[i], pcl_color[i], os.path.join(scene_dump_dir, 'pc.ply'))
 
          # filter out the valid ground truth reference box

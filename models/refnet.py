@@ -71,6 +71,16 @@ class RefNet(nn.Module):
             end_points: dict
         """
 
+        if not self.no_reference:
+            #######################################
+            #                                     #
+            #           LANGUAGE BRANCH           #
+            #                                     #
+            #######################################
+
+            # --------- LANGUAGE ENCODING ---------
+            data_dict = self.lang(data_dict)
+
         #######################################
         #                                     #
         #           DETECTION BRANCH          #
@@ -97,14 +107,6 @@ class RefNet(nn.Module):
         data_dict = self.proposal(xyz, features, data_dict)
 
         if not self.no_reference:
-            #######################################
-            #                                     #
-            #           LANGUAGE BRANCH           #
-            #                                     #
-            #######################################
-
-            # --------- LANGUAGE ENCODING ---------
-            data_dict = self.lang(data_dict)
 
             #######################################
             #                                     #
