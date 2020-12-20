@@ -5,11 +5,26 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Current File",
+            "name": "Python: training",
             "type": "python",
             "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal"
+            "program": "scripts/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--use_color"
+            ]
+        },
+        {
+            "name": "Python: debug ",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--use_color",
+                "--debug",
+                "1"
+            ]
         }
     ]
 }

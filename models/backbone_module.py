@@ -65,7 +65,8 @@ class Pointnet2Backbone(nn.Module):
         self.fp1 = PointnetFPModule(mlp=[256+256,256,256])
         self.fp2 = PointnetFPModule(mlp=[256+256,256,256])
 
-        self.multhead_attn = nn.MultiheadAttention(256,2)
+        self.multhead_attn = nn.MultiheadAttention(256,8)
+        self.multhead_attn2 = nn.MultiheadAttention(256,8)
 
     def _break_up_pc(self, pc):
         xyz = pc[..., :3].contiguous()
@@ -124,13 +125,14 @@ class Pointnet2Backbone(nn.Module):
         data_dict['sa4_xyz'] = xyz
         data_dict['sa4_features'] = features
 
-        lang_emb = torch.stack([data_dict["lang_emb"],data_dict["lang_emb"],data_dict["lang_emb"]],2)
+        # lang_emb = torch.stack([data_dict["lang_emb"],data_dict["lang_emb"],data_dict["lang_emb"]],2)
         # print("test",test.shape)
         # print("lan: ",data_dict["lang_emb"].shape, "xyz", xyz.shape)
 
         # att attention layer 
-        attn_out, attn_weight = self.multhead_attn(lang_emb.transpose(1, 2), xyz.transpose(1, 2), xyz.transpose(1, 2))
-        xyz = attn_out.transpose(1,2)
+        self_attn_out, self_attn_weight = self.multhead_attn2(xyz.transpose(0,1).transpose(0,2), xyz.transpose(0,1).transpose(0,2), xyz.transpose(0,1).transpose(0,2))
+        # attn_out, attn_weight = self.multhead_attn(lang_emb.transpose(1, 2), self_attn_out, self_attn_out)
+        xyz = self_attn_out.transpose(0,2).transpose(0,1)
 
         # print("test1 test2 :", test1.shape)
         # print("5 xyz",xyz.shape)
