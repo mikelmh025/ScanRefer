@@ -94,7 +94,13 @@ def get_model(args):
                 param.requires_grad = False
     
     # to CUDA
-    model = model.cuda()
+    is_cuda = torch.cuda.is_available()
+    device = torch.device("cuda:0" if is_cuda else "cpu")
+    model = model.to(device)
+    devices = [int(x) for x in args.devices]
+    model = nn.DataParallel(model, device_ids=devices)
+
+    # model = model.cuda()
 
     return model
 
@@ -257,6 +263,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--debug",type=int, default=0, help="set 1 for using mini dataset for debug")
+    parser.add_argument("--devices", nargs='+', type=str, default=['0'],help="devices to use")
     args = parser.parse_args()
 
     if args.debug != 0:
