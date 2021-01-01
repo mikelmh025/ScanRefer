@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: training",
             "type": "python",
@@ -11,7 +12,11 @@
             "program": "scripts/train.py",
             "console": "integratedTerminal",
             "args": [
-                "--use_color"
+                "--use_color",
+                "--devices",
+                "0",
+                "--batch_size",
+                "14"
             ]
         },
         {
@@ -23,7 +28,11 @@
             "args": [
                 "--use_color",
                 "--debug",
-                "1"
+                "1",
+                "--devices",
+                "0",
+                "--batch_size",
+                "14"
             ]
         }
     ]

@@ -14,11 +14,12 @@ class MatchModule(nn.Module):
             nn.ReLU()
         )
 
-        self.pre_lang = nn.Sequential(
-            nn.Conv1d(self.lang_size, hidden_size, 1),
+        self.att_change = nn.Sequential(
+            nn.Conv1d(num_proposals+126, num_proposals, 1),
             nn.ReLU()
         )
-        # self.match = nn.Conv1d(hidden_size, 1, 1)
+
+
         self.match = nn.Sequential(
             nn.Conv1d(hidden_size, hidden_size, 1),
             nn.ReLU(),
@@ -28,7 +29,7 @@ class MatchModule(nn.Module):
             nn.BatchNorm1d(hidden_size),
             nn.Conv1d(hidden_size, 1, 1)
         )
-        self.multhead_attn = nn.MultiheadAttention(256,8)
+        self.multhead_attn = nn.MultiheadAttention(128,8)
 
     def forward(self, data_dict):
         """
@@ -47,24 +48,27 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
-        # lang_feat = self.pre_lang(lang_feat.transpose(1,2)).transpose(1,2)
+        lang_feat_gru = data_dict["gru_out_feat"]
+        lang_feat_len_gru = data_dict["gru_out_len"] 
+        features = torch.cat([features,lang_feat_gru], dim=1).transpose(0,1)
 
-        # attn, attn_weight = self.multhead_attn(features.transpose(0,1),lang_feat.transpose(0,1),lang_feat.transpose(0,1))
-        # features = attn.transpose(0,1).transpose(1,2)
+        attn, attn_weight = self.multhead_attn(features,features,features)
+        features = attn.transpose(0,1)
 
-        # fuse
-        features = torch.cat([features, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
-        features = features.permute(0, 2, 1).contiguous() # batch_size, 128 + lang_size, num_proposals
+        features = self.att_change(features).transpose(1,2)
 
-        # fuse features
-        features = self.fuse(features) # batch_size, hidden_size, num_proposals
+        # ###### Original fuse##########
+        # # fuse
+        # features = torch.cat([features, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
+        # features = features.permute(0, 2, 1).contiguous() # batch_size, 128 + lang_size, num_proposals
 
-        # features, _ = self.multhead_attn(features.transpose(0,1),features.transpose(0,1),features.transpose(0,1))
-        # features = features.transpose(0,1)
+        # # fuse features
+        # features = self.fuse(features) # batch_size, hidden_size, num_proposals
         
-        # mask out invalid proposals
-        objectness_masks = objectness_masks.permute(0, 2, 1).contiguous() # batch_size, 1, num_proposals
-        features = features * objectness_masks
+        # # mask out invalid proposals
+        # objectness_masks = objectness_masks.permute(0, 2, 1).contiguous() # batch_size, 1, num_proposals
+        # features = features * objectness_masks
+        # #############################
 
         # match
         confidences = self.match(features).squeeze(1) # batch_size, num_proposals

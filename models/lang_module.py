@@ -10,6 +10,8 @@ class LangModule(nn.Module):
         emb_size=300, hidden_size=256):
         super().__init__() 
 
+        hidden_size = 128
+
         self.num_text_classes = num_text_classes
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir
@@ -36,23 +38,17 @@ class LangModule(nn.Module):
         """
 
         word_embs = data_dict["lang_feat"]
-        print("word_embs",word_embs.shape)
-        print("data_dict[lang_len]",data_dict["lang_len"].shape)
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
-    
+
         # encode description
         self.gru.flatten_parameters()
-        temp, lang_last = self.gru(lang_feat)
-        print("lan input", lang_feat.data.shape)
-        print("temp", temp.data.shape)
-        print("lang_last",lang_last.shape)
-        # print("output rnn temp data", temp.data.shape, "batch_size", temp.batch_sizes.shape, "sorted_indices", temp.sorted_indices.shape,"lang :", lang_last.shape)
+        gru_out, lang_last = self.gru(lang_feat)
         lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
-        print("lang_last after ",lang_last.shape)
-        import sys
-        sys.exit()
+
         # store the encoded language features
         data_dict["lang_emb"] = lang_last # B, hidden_size
+        # always use the overall max sequence length
+        data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
         
         # classify
         if self.use_lang_classifier:
