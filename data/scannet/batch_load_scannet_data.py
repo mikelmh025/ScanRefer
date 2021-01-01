@@ -13,8 +13,8 @@ import numpy as np
 from load_scannet_data import export
 import pdb
 
-SCANNET_DIR = 'scans_test'
-SCAN_NAMES = sorted([line.rstrip() for line in open('meta_data/scannetv2_test.txt')])
+SCANNET_DIR = '/data/minghao/3d_project/scannet/scans'
+SCAN_NAMES = sorted([line.rstrip() for line in open('meta_data/scannetv2_val.txt')])
 LABEL_MAP_FILE = 'meta_data/scannetv2-labels.combined.tsv'
 DONOTCARE_CLASS_IDS = np.array([])
 OBJ_CLASS_IDS = np.array([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]) # exclude wall (1), floor (2), ceiling (22)
@@ -23,6 +23,7 @@ OUTPUT_FOLDER = './scannet_data'
 
 def export_one_scan(scan_name, output_filename_prefix):    
     mesh_file = os.path.join(SCANNET_DIR, scan_name, scan_name + '_vh_clean_2.ply')
+    print("###### mesh_file", mesh_file)
     agg_file = os.path.join(SCANNET_DIR, scan_name, scan_name + '_vh_clean.aggregation.json')
     seg_file = os.path.join(SCANNET_DIR, scan_name, scan_name + '_vh_clean_2.0.010000.segs.json')
     meta_file = os.path.join(SCANNET_DIR, scan_name, scan_name + '.txt') # includes axisAlignment info for the train set scans.   

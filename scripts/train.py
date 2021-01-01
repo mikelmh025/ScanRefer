@@ -38,7 +38,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_multiview=args.use_multiview
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
 
     return dataset, dataloader
 
@@ -98,6 +98,7 @@ def get_model(args):
     device = torch.device("cuda:0" if is_cuda else "cpu")
     model = model.to(device)
     devices = [int(x) for x in args.devices]
+    print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
     model = nn.DataParallel(model, device_ids=devices)
 
     # model = model.cuda()
@@ -240,8 +241,8 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--tag", type=str, help="tag for the training, e.g. cuda_wl", default="")
-    parser.add_argument("--gpu", type=str, help="gpu", default="0")
-    parser.add_argument("--batch_size", type=int, help="batch size", default=14)
+    parser.add_argument("--gpu", type=str, help="gpu", default="0,1,2,3")
+    parser.add_argument("--batch_size", type=int, help="batch size", default=52)
     parser.add_argument("--epoch", type=int, help="number of epochs", default=50)
     parser.add_argument("--verbose", type=int, help="iterations of showing verbose", default=10)
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
@@ -263,7 +264,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_pretrained", type=str, help="Specify the folder name containing the pretrained detection module.")
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--debug",type=int, default=0, help="set 1 for using mini dataset for debug")
-    parser.add_argument("--devices", nargs='+', type=str, default=['0'],help="devices to use")
+    parser.add_argument("--devices", nargs='+', type=str, default=['0','1','2','3'],help="devices to use")
     args = parser.parse_args()
 
     if args.debug != 0:
@@ -272,7 +273,7 @@ if __name__ == "__main__":
 
     # setting
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "2"
 
     # reproducibility
     torch.manual_seed(args.seed)
