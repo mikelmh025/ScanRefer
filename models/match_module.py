@@ -48,27 +48,29 @@ class MatchModule(nn.Module):
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
 
-        lang_feat_gru = data_dict["gru_out_feat"]
-        lang_feat_len_gru = data_dict["gru_out_len"] 
-        features = torch.cat([features,lang_feat_gru], dim=1).transpose(0,1)
+        # ### self attention on lan+pc ####
+        # lang_feat_gru = data_dict["gru_out_feat"]
+        # lang_feat_len_gru = data_dict["gru_out_len"] 
+        # features = torch.cat([features,lang_feat_gru], dim=1).transpose(0,1)
 
-        attn, attn_weight = self.multhead_attn(features,features,features)
-        features = attn.transpose(0,1)
+        # attn, attn_weight = self.multhead_attn(features,features,features)
+        # features = attn.transpose(0,1)
 
-        features = self.att_change(features).transpose(1,2)
+        # features = self.att_change(features).transpose(1,2)
+        # ###############################
 
-        # ###### Original fuse##########
-        # # fuse
-        # features = torch.cat([features, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
-        # features = features.permute(0, 2, 1).contiguous() # batch_size, 128 + lang_size, num_proposals
+        ###### Original fuse##########
+        # fuse
+        features = torch.cat([features, lang_feat], dim=-1) # batch_size, num_proposals, 128 + lang_size
+        features = features.permute(0, 2, 1).contiguous() # batch_size, 128 + lang_size, num_proposals
 
-        # # fuse features
-        # features = self.fuse(features) # batch_size, hidden_size, num_proposals
+        # fuse features
+        features = self.fuse(features) # batch_size, hidden_size, num_proposals
         
-        # # mask out invalid proposals
+        # mask out invalid proposals
         # objectness_masks = objectness_masks.permute(0, 2, 1).contiguous() # batch_size, 1, num_proposals
         # features = features * objectness_masks
-        # #############################
+        #############################
 
         # match
         confidences = self.match(features).squeeze(1) # batch_size, num_proposals

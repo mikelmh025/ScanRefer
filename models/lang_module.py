@@ -10,7 +10,7 @@ class LangModule(nn.Module):
         emb_size=300, hidden_size=256):
         super().__init__() 
 
-        hidden_size = 128
+        # hidden_size = 128
 
         self.num_text_classes = num_text_classes
         self.use_lang_classifier = use_lang_classifier
