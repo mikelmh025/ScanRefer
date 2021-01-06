@@ -44,8 +44,6 @@ class MatchModule(nn.Module):
         features = data_dict['aggregated_vote_features'] # batch_size, num_proposal, 128
         objectness_masks = data_dict['objectness_scores'].max(2)[1].float().unsqueeze(2) # batch_size, num_proposals, 1
 
-        features = features * objectness_masks.contiguous()
-
         # unpack outputs from language branch
         lang_feat = data_dict["lang_emb"] # batch_size, lang_size
         lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
