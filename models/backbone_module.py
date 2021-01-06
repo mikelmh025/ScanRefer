@@ -101,38 +101,49 @@ class Pointnet2Backbone(nn.Module):
 
         xyz, features = self._break_up_pc(pointcloud)
 
-        # --------- 4 SET ABSTRACTION LAYERS ---------
-        # print("1 xyz",xyz.shape)
-        
+        # --------- 4 SET ABSTRACTION LAYERS ---------        
         xyz, features, fps_inds = self.sa1(xyz, features)
         data_dict['sa1_inds'] = fps_inds
         data_dict['sa1_xyz'] = xyz
         data_dict['sa1_features'] = features
-        # print("2 xyz",xyz.shape)
 
         xyz, features, fps_inds = self.sa2(xyz, features) # this fps_inds is just 0,1,...,1023
         data_dict['sa2_inds'] = fps_inds
         data_dict['sa2_xyz'] = xyz
         data_dict['sa2_features'] = features
-        # print("3 xyz",xyz.shape)
 
         xyz, features, fps_inds = self.sa3(xyz, features) # this fps_inds is just 0,1,...,511
         data_dict['sa3_xyz'] = xyz
         data_dict['sa3_features'] = features
-        # print("4 xyz",xyz.shape)
 
         xyz, features, fps_inds = self.sa4(xyz, features) # this fps_inds is just 0,1,...,255
         data_dict['sa4_xyz'] = xyz
         data_dict['sa4_features'] = features
+
+        # self attention###############33
+        # features = features.transpose(0,1).transpose(0,2)
+        # lan_feature = data_dict["gru_out_feat"].transpose(0,1)
+        # features = torch.cat([features,lan_feature])
+        
+        # self_attn_out, _ = self.multhead_attn(features,features,features)
+
+        # self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
+
+        # features = self_attn_out.transpose(0,2).transpose(0,1)
+        ######################3
+
+
+        # b = self.fp1(data_dict['sa3_xyz'], data_dict['sa4_xyz'], data_dict['sa3_features'], a)
+
 
         # lang_emb = torch.stack([data_dict["lang_emb"],data_dict["lang_emb"],data_dict["lang_emb"]],2)
         # print("test",test.shape)
         # print("lan: ",data_dict["lang_emb"].shape, "xyz", xyz.shape)
 
         # att attention layer 
-        self_attn_out, self_attn_weight = self.multhead_attn2(xyz.transpose(0,1).transpose(0,2), xyz.transpose(0,1).transpose(0,2), xyz.transpose(0,1).transpose(0,2))
-        # attn_out, attn_weight = self.multhead_attn(lang_emb.transpose(1, 2), self_attn_out, self_attn_out)
-        xyz = self_attn_out.transpose(0,2).transpose(0,1)
+        # self_attn_out, self_attn_weight = self.multhead_attn2(xyz.transpose(0,1).transpose(0,2), xyz.transpose(0,1).transpose(0,2), xyz.transpose(0,1).transpose(0,2))
+        # # attn_out, attn_weight = self.multhead_attn(lang_emb.transpose(1, 2), self_attn_out, self_attn_out)
+        # xyz = self_attn_out.transpose(0,2).transpose(0,1)
 
         # print("test1 test2 :", test1.shape)
         # print("5 xyz",xyz.shape)

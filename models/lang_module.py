@@ -48,7 +48,7 @@ class LangModule(nn.Module):
         # store the encoded language features
         data_dict["lang_emb"] = lang_last # B, hidden_size
         # always use the overall max sequence length
-        # data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
+        data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
         
         # classify
         if self.use_lang_classifier:
