@@ -58,6 +58,10 @@ def get_model(args, config):
         use_bidir=args.use_bidir
     ).cuda()
 
+    devices = [int(x) for x in args.devices]
+    print("devices", devices, "torch.cuda.device_count()", torch.cuda.device_count())
+    model = nn.DataParallel(model, device_ids=devices)
+
     model_name = "model_last.pth" if args.detection else "model.pth"
     path = os.path.join(CONF.PATH.BASE, args.folder, model_name)
     model.load_state_dict(torch.load(path), strict=False)
@@ -427,7 +431,7 @@ def eval_det(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--folder", type=str, help="Folder containing the model")
-    parser.add_argument("--gpu", type=str, help="gpu", default="0")
+    parser.add_argument("--gpu", type=str, help="gpu", default="0,1,2,3")
     parser.add_argument("--batch_size", type=int, help="batch size", default=8)
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
@@ -448,6 +452,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_best", action="store_true", help="Use best bounding boxes as outputs.")
     parser.add_argument("--reference", action="store_true", help="evaluate the reference localization results")
     parser.add_argument("--detection", action="store_true", help="evaluate the object detection results")
+    parser.add_argument("--devices", nargs='+', type=str, default=['0', '1', '2', '3'], help="devices to use")
     args = parser.parse_args()
 
     # setting
