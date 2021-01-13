@@ -123,11 +123,13 @@ class Pointnet2Backbone(nn.Module):
         # self attention###############
         features = features.transpose(0,1).transpose(0,2)
         lan_feature = data_dict["gru_out_feat"].transpose(0,1)
+        leng = features.shape[0]
         features = torch.cat([features,lan_feature])
         
         self_attn_out, _ = self.multhead_attn(features,features,features)
+        self_attn_out = self_attn_out[:leng]
 
-        self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
+        # self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
 
         features = self_attn_out.transpose(0,2).transpose(0,1)
         ######################3
