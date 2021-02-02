@@ -238,6 +238,68 @@ def compute_reference_loss(data_dict, config):
     criterion = SoftmaxRankingLoss()
     loss = criterion(cluster_preds, cluster_labels.float().clone())
 
+    # 1 vs all other objects with same label, across the entire batch 
+    all_gt_center_label = data_dict['center_label'].cpu().numpy() # (B,128,3)
+    all_gt_sem_labels = data_dict['size_class_label'].cpu().numpy()
+    all_gt_num_bbox = data_dict['num_bbox'].cpu().numpy() #(B)
+    all_gt_box_label = data_dict['ref_box_label'].cpu().numpy() #(B)
+    gt_obj_id = data_dict['object_id'].cpu().numpy() #(B,128)
+    result = []
+
+    # Loop: Each refering object. (B)
+    for indx in range(len(all_gt_sem_labels)):
+        
+        current_label = gt_size_class[indx]
+        # current_obj_index = np.argmax(all_gt_box_label[indx])
+        
+
+        # initial out 
+        out = gt_center[indx]  
+        out = out.reshape(1,out.shape[0])
+
+        for indx2 in range(len(all_gt_sem_labels)):
+            item_list = all_gt_sem_labels[indx2]  # all items in one batch
+            # Loop1: Each object in the same scene (128)
+            for indx_test in range(len(item_list)):
+                #Stop if exceeding number of obj
+                if indx_test >= all_gt_num_bbox[indx]-1 :
+                    break
+
+                # Don't add the it self twice
+                match_label_same = all_gt_box_label[indx][indx_test] if indx == indx2 else 0
+
+                # Find the object in same scene with same label
+                if current_label == item_list[indx_test] and match_label_same != 1:
+                    print('Batch indx1 :', indx, 'Batch indx2 :', indx2, " item index : ", indx_test)
+                    # get required data 
+                    match_center = all_gt_center_label[indx][indx_test]
+                    match_center = match_center.reshape(1,match_center.shape[0])
+
+                    # TODO: Now only have center label, not the bbox
+                    # Here only have center
+                    out = np.append(out,match_center,axis=0)
+
+                    # Find highest IOU to find box
+
+        # # Loop2: Each object in the other scenes (B-1,128)
+        # for indx2 in range(len(all_gt_sem_labels)):
+        #     if indx == indx2: continue
+        #     item_list2 = all_gt_sem_labels[indx]
+        #     # Loop2-1: Each object in the scene (128)
+        #     for indx_test2 in range(len(item_list2)):
+        #         #Stop if exceeding number of obj
+        #         if indx_test2 >= all_gt_num_bbox[indx]-1 :
+        #             break
+        #         print('Batch indx1 :', indx, 'Batch indx2 :', indx2, " item index : ", indx_test2)
+
+        # out in a batch is a 'list' of boxex where the first one is positive sample
+
+        # Calculate the loss in each batch and append to result
+    # Mean result
+
+
+
+
     return loss, cluster_preds, cluster_labels
 
 def compute_lang_classification_loss(data_dict):

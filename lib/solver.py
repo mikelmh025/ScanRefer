@@ -305,6 +305,19 @@ class Solver():
         # change dataloader
         dataloader = dataloader if phase == "train" else tqdm(dataloader)
 
+        # multiple = 0
+        # total = 0
+        # for data_dict in dataloader:
+        #     # for key in data_dict:
+        #     #     data_dict[key] = data_dict[key].cuda()
+        #     data_dict['unique_multiple'] = data_dict['unique_multiple'].cuda()
+        #     multiple += torch.sum(data_dict['unique_multiple']).item()
+        #     total += data_dict['unique_multiple'].shape[0]
+
+        # print("multiple",multiple, "total",total, "rate", multiple/total) 
+        # import sys
+        # sys.exit()
+
         for data_dict in dataloader:
             # move to cuda
             for key in data_dict:

@@ -10,6 +10,7 @@ import h5py
 import json
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt  
 import multiprocessing as mp
 from torch.utils.data import Dataset
 
@@ -17,6 +18,8 @@ sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
 from utils.pc_utils import random_sampling, rotx, roty, rotz
 from data.scannet.model_util_scannet import rotate_aligned_boxes, ScannetDatasetConfig, rotate_aligned_boxes_along_axis
+
+
 
 # data setting
 DC = ScannetDatasetConfig()
@@ -222,7 +225,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict["vote_label_mask"] = point_votes_mask.astype(np.int64)
         data_dict["scan_idx"] = np.array(idx).astype(np.int64)
         data_dict["pcl_color"] = pcl_color
-        data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
+        # data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
         data_dict["ref_box_label"] = ref_box_label.astype(np.int64) # 0/1 reference labels for each object bbox
         data_dict["ref_center_label"] = ref_center_label.astype(np.float32)
         data_dict["ref_heading_class_label"] = np.array(int(ref_heading_class_label)).astype(np.int64)
@@ -316,6 +319,7 @@ class ScannetReferenceDataset(Dataset):
             glove = pickle.load(f)
 
         lang = {}
+        test = {}
         for data in self.scanrefer:
             scene_id = data["scene_id"]
             object_id = data["object_id"]
@@ -323,12 +327,15 @@ class ScannetReferenceDataset(Dataset):
 
             if scene_id not in lang:
                 lang[scene_id] = {}
+                test[scene_id] = {}
 
             if object_id not in lang[scene_id]:
                 lang[scene_id][object_id] = {}
+                test[scene_id][object_id] = {}
 
             if ann_id not in lang[scene_id][object_id]:
                 lang[scene_id][object_id][ann_id] = {}
+                # test[scene_id][object_id][ann_id] = {}
 
             # tokenize the description
             tokens = data["token"]
@@ -343,6 +350,45 @@ class ScannetReferenceDataset(Dataset):
 
             # store
             lang[scene_id][object_id][ann_id] = embeddings
+            # getting data for Analysis the language instances with other objects from same category in the same scene
+            # And second test as well
+            # test[scene_id][object_id] = [data['object_id'],data['object_name']]
+
+        # out_stat = {}
+        # for 
+
+        # getting data for Analysis the language instances with other objects from same category in the same scene
+        # for scene in test:
+        #     for obj in test[scene]:
+        #         test[scene][obj].append(0)
+        #         for obj_compare in test[scene]:
+        #             if test[scene][obj][0] != test[scene][obj_compare][0] and test[scene][obj][1] == test[scene][obj_compare][1]:
+        #                 test[scene][obj][2] += 1
+        #         if str(test[scene][obj][2]) not in out_stat:
+        #             out_stat[str(test[scene][obj][2])] = {}
+        #             out_stat[str(test[scene][obj][2])] = 1
+        #         else:
+        #             out_stat[str(test[scene][obj][2])] += 1
+
+        # # creating the dataset 
+        # data = out_stat
+        # keys = list(data.keys()) 
+        # keys = [int(string) for string in keys]
+        # values = list(data.values()) 
+        
+        # fig = plt.figure(figsize = (10, 5)) 
+        
+        # # creating the bar plot 
+        # plt.bar(keys, values, color ='maroon',  
+        #         width = 0.4) 
+        
+        # plt.xlabel("Number of other object from same class") 
+        # plt.ylabel("Number of annotation") 
+        # plt.title("Analysis the language instances with other objects from same category") 
+        # plt.show()
+
+        # plt.pie(values, labels = keys)
+        # plt.show()
 
         return lang
 

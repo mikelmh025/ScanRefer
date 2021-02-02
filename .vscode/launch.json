@@ -4,7 +4,25 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
+        {
+            "name": "Eval.py debug",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/eval.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--folder",
+                "outputs/Baseline", 
+                "--reference", 
+                "--use_color", 
+                "--no_nms" ,
+                "--force", 
+                "--repeat", 
+                "5",
+                "--devices", 
+                "0"
+            ]
+        },
         {
             "name": "Python: training",
             "type": "python",
