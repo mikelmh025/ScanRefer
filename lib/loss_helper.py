@@ -254,7 +254,7 @@ def compute_reference_loss(data_dict, config,num_sample_contra):
     loss_contrastive = []
     label_done = []
 
-    flag_add_threshold = num_sample_contra
+    flag_add_threshold = num_sample_contra if num_sample_contra!=None else 1
     # Loop1: Each batch. (B)
     for indx in range(len(all_gt_sem_labels)):
         current_label = gt_size_class[indx]
