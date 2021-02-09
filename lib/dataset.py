@@ -78,7 +78,7 @@ class ScannetReferenceDataset(Dataset):
         semantic_labels = self.scene_data[scene_id]["semantic_labels"]
         instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
 
-        point_cloud,pcl_color = self.process_pc(mesh_vertices)
+        point_cloud,pcl_color = self.process_pc(mesh_vertices,scene_id)
         
 
         # # Choose examples from other scene
@@ -262,7 +262,7 @@ class ScannetReferenceDataset(Dataset):
 
         return data_dict
     
-    def process_pc(self,mesh_vertices):
+    def process_pc(self,mesh_vertices,scene_id):
         if not self.use_color:
             point_cloud = mesh_vertices[:,0:3] # do not use color for now
             pcl_color = mesh_vertices[:,3:6]
