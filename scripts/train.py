@@ -149,8 +149,7 @@ def get_solver(args, dataloader):
         lr_decay_step=LR_DECAY_STEP,
         lr_decay_rate=LR_DECAY_RATE,
         bn_decay_step=BN_DECAY_STEP,
-        bn_decay_rate=BN_DECAY_RATE,
-        num_sample_contra=args.num_sample_contra
+        bn_decay_rate=BN_DECAY_RATE
     )
     num_params = get_num_params(model)
 
@@ -251,7 +250,6 @@ if __name__ == "__main__":
     parser.add_argument("--val_step", type=int, help="iterations of validating", default=5000)
     parser.add_argument("--lr", type=float, help="learning rate", default=1e-3)
     parser.add_argument("--wd", type=float, help="weight decay", default=1e-5)
-    parser.add_argument("--num_sample_contra", type=int, default=30, help="Number of sample used int contrastive lerning")
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")

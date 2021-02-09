@@ -87,8 +87,7 @@ BEST_REPORT_TEMPLATE = """
 class Solver():
     def __init__(self, model, config, dataloader, optimizer, stamp, val_step=10, 
     detection=True, reference=True, use_lang_classifier=True,
-    lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None,
-    num_sample_contra=None):
+    lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None):
 
         self.epoch = 0                    # set in __call__
         self.verbose = 0                  # set in __call__
@@ -109,7 +108,6 @@ class Solver():
         self.bn_decay_step = bn_decay_step
         self.bn_decay_rate = bn_decay_rate
 
-        self.num_sample_contra = num_sample_contra
 
         self.best = {
             "epoch": 0,
@@ -270,8 +268,7 @@ class Solver():
             config=self.config, 
             detection=self.detection,
             reference=self.reference, 
-            use_lang_classifier=self.use_lang_classifier,
-            num_sample_contra=self.num_sample_contra
+            use_lang_classifier=self.use_lang_classifier
         )
 
         # dump
