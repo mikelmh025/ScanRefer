@@ -185,7 +185,7 @@ def compute_box_and_sem_cls_loss(data_dict, config):
 
     return center_loss, heading_class_loss, heading_residual_normalized_loss, size_class_loss, size_residual_normalized_loss, sem_cls_loss
 
-def compute_reference_loss(data_dict, config,num_sample_contra):
+def compute_reference_loss(data_dict, config):
     """ Compute cluster reference loss
 
     Args:
@@ -336,7 +336,7 @@ def compute_lang_classification_loss(data_dict):
 
     return loss
 
-def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False,num_sample_contra=None):
+def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False):
     """ Loss functions
 
     Args:
@@ -388,7 +388,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     if reference:
         # Reference loss
-        ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config,num_sample_contra)
+        ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
         # ref_loss = torch.zeros(1)[0].cuda()
         # contr_loss = torch.zeros(1)[0].cuda()
         # cluster_labels = objectness_label.new_zeros(objectness_label.shape).cuda()
