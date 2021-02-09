@@ -16,9 +16,9 @@ from torch.utils.data import Dataset
 
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
-from utils.pc_utils import random_sampling, rotx, roty, rotz
+from utils.pc_utils import random_sampling, rotx, roty, rotz, choose_label_pc
 from data.scannet.model_util_scannet import rotate_aligned_boxes, ScannetDatasetConfig, rotate_aligned_boxes_along_axis
-
+import random
 
 
 # data setting
@@ -78,36 +78,42 @@ class ScannetReferenceDataset(Dataset):
         semantic_labels = self.scene_data[scene_id]["semantic_labels"]
         instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
 
-        if not self.use_color:
-            point_cloud = mesh_vertices[:,0:3] # do not use color for now
-            pcl_color = mesh_vertices[:,3:6]
-        else:
-            point_cloud = mesh_vertices[:,0:6] 
-            point_cloud[:,3:6] = (point_cloud[:,3:6]-MEAN_COLOR_RGB)/256.0
-            pcl_color = point_cloud[:,3:6]
+        point_cloud,pcl_color = self.process_pc(mesh_vertices)
         
-        if self.use_normal:
-            normals = mesh_vertices[:,6:9]
-            point_cloud = np.concatenate([point_cloud, normals],1)
 
-        if self.use_multiview:
-            # load multiview database
-            pid = mp.current_process().pid
-            if pid not in self.multiview_data:
-                self.multiview_data[pid] = h5py.File(MULTIVIEW_DATA, "r", libver="latest")
+        # Choose examples from other scene
+        # MAX_NUM_OBJ - instance_bboxes.shape[0]
+        for i in range(MAX_NUM_OBJ - instance_bboxes.shape[0]):
+            idx_other = random.randint(0,len(self.scanrefer))
+            while idx_other== idx:
+                idx_other = random.randint(0,len(self.scanrefer))
 
-            multiview = self.multiview_data[pid][scene_id]
-            point_cloud = np.concatenate([point_cloud, multiview],1)
+            other_scene_id = self.scanrefer[idx_other]["scene_id"]
+            object_id = int(self.scanrefer[idx_other]["object_id"])
+            object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
+            ann_id = self.scanrefer[idx_other]["ann_id"]
 
-        if self.use_height:
-            floor_height = np.percentile(point_cloud[:,2],0.99)
-            height = point_cloud[:,2] - floor_height
-            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1) 
-        
-        point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)        
+            # get pc
+            other_mesh_vertices = self.scene_data[other_scene_id]["mesh_vertices"]
+            other_instance_labels = self.scene_data[other_scene_id]["instance_labels"]
+            other_semantic_labels = self.scene_data[other_scene_id]["semantic_labels"]
+            other_instance_bboxes = self.scene_data[other_scene_id]["instance_bboxes"]
+            other_point_cloud,other_pcl_color = self.process_pc(other_mesh_vertices)
+
+            # Random pick object and append to the current scene
+            target_obj_label = random.randint(0,np.max(other_instance_labels)) # Find object based on id
+            test_instance_labels, test_choices, flag_exceed = choose_label_pc(other_instance_labels, target_obj_label, 200, return_choices=True)
+            instance_labels = np.concatenate((instance_labels,test_instance_labels),axis=0) 
+            point_cloud     = np.concatenate((point_cloud,other_point_cloud[test_choices]),axis=0) 
+            semantic_labels = np.concatenate((semantic_labels,other_semantic_labels[test_choices]),axis=0)
+            pcl_color       = np.concatenate((pcl_color,other_pcl_color[test_choices]),axis=0)
+
+        point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)
         instance_labels = instance_labels[choices]
         semantic_labels = semantic_labels[choices]
         pcl_color = pcl_color[choices]
+
+        
         
         # ------------------------------- LABELS ------------------------------    
         target_bboxes = np.zeros((MAX_NUM_OBJ, 6))
@@ -236,11 +242,44 @@ class ScannetReferenceDataset(Dataset):
         data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
         data_dict["object_cat"] = np.array(object_cat).astype(np.int64)
         data_dict["unique_multiple"] = np.array(self.unique_multiple_lookup[scene_id][str(object_id)][ann_id]).astype(np.int64)
-        data_dict["pcl_color"] = pcl_color
+        # data_dict["pcl_color"] = pcl_color
         data_dict["load_time"] = time.time() - start
+
+        # data_dict["test_point_clouds"] = test_point_cloud.astype(np.float32)
+        # data_dict["test_pcl_color"] = test_pcl_color
 
         return data_dict
     
+    def process_pc(self,mesh_vertices):
+        if not self.use_color:
+            point_cloud = mesh_vertices[:,0:3] # do not use color for now
+            pcl_color = mesh_vertices[:,3:6]
+        else:
+            point_cloud = mesh_vertices[:,0:6] 
+            point_cloud[:,3:6] = (point_cloud[:,3:6]-MEAN_COLOR_RGB)/256.0
+            pcl_color = point_cloud[:,3:6]
+        
+        if self.use_normal:
+            normals = mesh_vertices[:,6:9]
+            point_cloud = np.concatenate([point_cloud, normals],1)
+
+        if self.use_multiview:
+            # load multiview database
+            pid = mp.current_process().pid
+            if pid not in self.multiview_data:
+                self.multiview_data[pid] = h5py.File(MULTIVIEW_DATA, "r", libver="latest")
+ 
+            multiview = self.multiview_data[pid][scene_id]
+            point_cloud = np.concatenate([point_cloud, multiview],1)
+
+        if self.use_height:
+            floor_height = np.percentile(point_cloud[:,2],0.99)
+            height = point_cloud[:,2] - floor_height
+            point_cloud = np.concatenate([point_cloud, np.expand_dims(height, 1)],1) 
+        
+        return point_cloud,pcl_color
+
+
     def _get_raw2label(self):
         # mapping
         scannet_labels = DC.type2class.keys()

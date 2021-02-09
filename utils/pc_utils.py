@@ -39,6 +39,27 @@ def random_sampling(pc, num_sample, replace=None, return_choices=False):
     else:
         return pc[choices]
 
+def choose_label_pc(label_set, label, num_sample, replace=None, return_choices=False):
+    """ Input is NxC, output is num_samplexC
+    """
+    if replace is None: replace = (label_set.shape[0]<num_sample)
+
+    target_set = np.where(label_set==label)[0]
+    if target_set.shape[0] < num_sample:
+        flag_exceed = 1
+        # print("Exceeding target_set.shape[0]",target_set.shape[0])
+    else:
+        flag_exceed = 0
+
+    num_sample = min(target_set.shape[0],num_sample)
+
+    choices = np.random.choice(target_set, num_sample, replace=replace)
+    if return_choices:
+        return label_set[choices], choices, flag_exceed
+    else:
+        return label_set[choices]
+
+
 # ----------------------------------------
 # Point Cloud/Volume Conversions
 # ----------------------------------------

@@ -5,6 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Vis: debug",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/visualize_custom.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--folder",
+                "outputs/BA_contra_30_test1/",
+                "--scene_id",
+                "scene0011_00",
+                "--use_color"
+
+            ]
+        },
+        {
             "name": "Eval.py debug",
             "type": "python",
             "request": "launch",
@@ -12,14 +27,14 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/Baseline", 
-                "--reference", 
-                "--use_color", 
-                "--no_nms" ,
-                "--force", 
-                "--repeat", 
+                "outputs/Baseline",
+                "--reference",
+                "--use_color",
+                "--no_nms",
+                "--force",
+                "--repeat",
                 "5",
-                "--devices", 
+                "--devices",
                 "0"
             ]
         },

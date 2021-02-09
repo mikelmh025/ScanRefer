@@ -26,6 +26,8 @@ from lib.ap_helper import APCalculator, parse_predictions, parse_groundtruths
 from lib.loss_helper import get_loss
 from lib.config import CONF
 
+import random
+
 # data
 SCANNET_ROOT = "data/scannet/scans/" # TODO point this to your scannet data
 SCANNET_MESH = os.path.join(SCANNET_ROOT, "{}/{}_vh_clean_2.ply") # scene_id, scene_id 
@@ -333,38 +335,16 @@ def dump_results(args, scanrefer, data, config):
     # from inputs
     ids = data['scan_idx'].detach().cpu().numpy()
     point_clouds = data['point_clouds'].cpu().numpy()
+    test_point_clouds = data["test_point_clouds"].cpu().numpy() # one object
     batch_size = point_clouds.shape[0]
 
     pcl_color = data["pcl_color"].detach().cpu().numpy()
+    test_pcl_color = data["test_pcl_color"].detach().cpu().numpy()
     if args.use_color:
         pcl_color = (pcl_color * 256 + MEAN_COLOR_RGB).astype(np.int64)
+        test_pcl_color = (test_pcl_color * 256 + MEAN_COLOR_RGB).astype(np.int64)
     
-    # from network outputs
-    # detection
-    pred_objectness = torch.argmax(data['objectness_scores'], 2).float().detach().cpu().numpy()
-    pred_center = data['center'].detach().cpu().numpy() # (B,K,3)
-    pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
-    pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-    pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-    pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-    pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
-    pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
-    # reference
-    pred_ref_scores = data["cluster_ref"].detach().cpu().numpy()
-    pred_ref_scores_softmax = F.softmax(data["cluster_ref"] * torch.argmax(data['objectness_scores'], 2).float() * data['objectness_mask'], dim=1).detach().cpu().numpy()
-    # post-processing
-    nms_masks = data['objectness_mask'].detach().cpu().numpy() # B,num_proposal
     
-    # ground truth
-    gt_center = data['center_label'].cpu().numpy() # (B,MAX_NUM_OBJ,3)
-    gt_heading_class = data['heading_class_label'].cpu().numpy() # B,K2
-    gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,K2
-    gt_size_class = data['size_class_label'].cpu().numpy() # B,K2
-    gt_size_residual = data['size_residual_label'].cpu().numpy() # B,K2,3
-    # reference
-    gt_ref_labels = data["ref_box_label"].detach().cpu().numpy()
-
     for i in range(batch_size):
         # basic info
         idx = ids[i]
@@ -375,42 +355,26 @@ def dump_results(args, scanrefer, data, config):
     
         # scene_output
         scene_dump_dir = os.path.join(dump_dir, scene_id)
-        if not os.path.exists(scene_dump_dir):
-            os.mkdir(scene_dump_dir)
+        # if not os.path.exists(scene_dump_dir):
+        os.makedirs(scene_dump_dir,exist_ok=True)
 
-            # # Dump the original scene point clouds
-            mesh = align_mesh(scene_id)
-            mesh.write(os.path.join(scene_dump_dir, 'mesh.ply'))
-            print("pcl_color[i] in pc.ply", pcl_color[i])
-            write_ply_rgb(point_clouds[i], pcl_color[i], os.path.join(scene_dump_dir, 'pc.ply'))
+        # # Dump the original scene point clouds
+        # mesh = align_mesh(scene_id)
+        # mesh.write(os.path.join(scene_dump_dir, 'mesh.ply'))
 
-         # filter out the valid ground truth reference box
-        assert gt_ref_labels[i].shape[0] == gt_center[i].shape[0]
-        gt_ref_idx = np.argmax(gt_ref_labels[i], 0)
+        print("pcl_color[i] in pc.ply", pcl_color[i])
+        point_clouds = point_clouds[i]  #[:200]
+        pcl_color    = pcl_color[i]     #[:200]
+        test_point_clouds = test_point_clouds[i]
+        test_pcl_color = test_pcl_color[i]
+        jitter_idx = random.random()*0.45 +0.8
 
-        # visualize the gt reference box
-        # NOTE: for each object there should be only one gt reference box
-        object_dump_dir = os.path.join(dump_dir, scene_id, "gt_{}_{}.ply".format(object_id, object_name))
-        gt_obb = config.param2obb(gt_center[i, gt_ref_idx, 0:3], gt_heading_class[i, gt_ref_idx], gt_heading_residual[i, gt_ref_idx],
-                gt_size_class[i, gt_ref_idx], gt_size_residual[i, gt_ref_idx])
-        gt_bbox = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])
+        write_ply_rgb(point_clouds, pcl_color, os.path.join(scene_dump_dir, 'pc_full.ply'))
+        write_ply_rgb(test_point_clouds, test_pcl_color, os.path.join(scene_dump_dir, 'pc_full_obj.ply'))
+        write_ply_rgb(test_point_clouds*jitter_idx, test_pcl_color, os.path.join(scene_dump_dir, 'pc_full_obj2.ply'))
 
-        if not os.path.exists(object_dump_dir):
-            write_bbox(gt_obb, 0, os.path.join(scene_dump_dir, 'gt_{}_{}.ply'.format(object_id, object_name)))
-        
-        # find the valid reference prediction
-        pred_masks = nms_masks[i] * pred_objectness[i] == 1
-        assert pred_ref_scores[i].shape[0] == pred_center[i].shape[0]
-        pred_ref_idx = np.argmax(pred_ref_scores[i] * pred_masks, 0)
-        assigned_gt = torch.gather(data["ref_box_label"], 1, data["object_assignment"]).detach().cpu().numpy()
-
-        # visualize the predicted reference box
-        pred_obb = config.param2obb(pred_center[i, pred_ref_idx, 0:3], pred_heading_class[i, pred_ref_idx], pred_heading_residual[i, pred_ref_idx],
-                pred_size_class[i, pred_ref_idx], pred_size_residual[i, pred_ref_idx])
-        pred_bbox = get_3d_box(pred_obb[3:6], pred_obb[6], pred_obb[0:3])
-        iou = box3d_iou(gt_bbox, pred_bbox)
-
-        write_bbox(pred_obb, 1, os.path.join(scene_dump_dir, 'pred_{}_{}_{}_{:.5f}_{:.5f}.ply'.format(object_id, object_name, ann_id, pred_ref_scores_softmax[i, pred_ref_idx], iou)))
+        # write_ply_rgb(point_clouds[i], pcl_color[i], os.path.join(scene_dump_dir, 'pc.ply'))
+        break
 
 def visualize(args):
     # init training dataset
@@ -447,6 +411,7 @@ def visualize(args):
         
         # visualize
         dump_results(args, scanrefer, data, DC)
+        break
 
     print("done!")
 
