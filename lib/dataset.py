@@ -81,44 +81,44 @@ class ScannetReferenceDataset(Dataset):
         point_cloud,pcl_color = self.process_pc(mesh_vertices)
         
 
-        # Choose examples from other scene
-        # MAX_NUM_OBJ - instance_bboxes.shape[0]
-        for i in range(MAX_NUM_OBJ - instance_bboxes.shape[0]):
-            idx_other = random.randint(0,len(self.scanrefer))
-            while idx_other== idx:
-                idx_other = random.randint(0,len(self.scanrefer))
+        # # Choose examples from other scene
+        # # MAX_NUM_OBJ - instance_bboxes.shape[0]
+        # for i in range(MAX_NUM_OBJ - instance_bboxes.shape[0]):
+        #     idx_other = random.randint(0,len(self.scanrefer))
+        #     while idx_other== idx:
+        #         idx_other = random.randint(0,len(self.scanrefer))
 
-            other_scene_id = self.scanrefer[idx_other]["scene_id"]
-            other_object_id = int(self.scanrefer[idx_other]["object_id"])
-            other_object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
-            other_ann_id = self.scanrefer[idx_other]["ann_id"]
+        #     other_scene_id = self.scanrefer[idx_other]["scene_id"]
+        #     other_object_id = int(self.scanrefer[idx_other]["object_id"])
+        #     other_object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
+        #     other_ann_id = self.scanrefer[idx_other]["ann_id"]
 
-            # get pc
-            other_mesh_vertices = self.scene_data[other_scene_id]["mesh_vertices"]
-            other_instance_labels = self.scene_data[other_scene_id]["instance_labels"]
-            other_semantic_labels = self.scene_data[other_scene_id]["semantic_labels"]
-            other_instance_bboxes = self.scene_data[other_scene_id]["instance_bboxes"]
-            other_point_cloud,other_pcl_color = self.process_pc(other_mesh_vertices)
+        #     # get pc
+        #     other_mesh_vertices = self.scene_data[other_scene_id]["mesh_vertices"]
+        #     other_instance_labels = self.scene_data[other_scene_id]["instance_labels"]
+        #     other_semantic_labels = self.scene_data[other_scene_id]["semantic_labels"]
+        #     other_instance_bboxes = self.scene_data[other_scene_id]["instance_bboxes"]
+        #     other_point_cloud,other_pcl_color = self.process_pc(other_mesh_vertices)
 
-            # Random pick object and append to the current scene
-            target_obj_label = random.randint(0,np.max(other_instance_labels)) # Find object based on id
-            test_instance_labels, test_choices, flag_exceed = choose_label_pc(other_instance_labels, target_obj_label, 200, return_choices=True)
-            instance_labels = np.concatenate((instance_labels,test_instance_labels),axis=0) 
-            point_cloud     = np.concatenate((point_cloud,other_point_cloud[test_choices]),axis=0) 
-            semantic_labels = np.concatenate((semantic_labels,other_semantic_labels[test_choices]),axis=0)
-            pcl_color       = np.concatenate((pcl_color,other_pcl_color[test_choices]),axis=0)
+        #     # Random pick object and append to the current scene
+        #     target_obj_label = random.randint(0,np.max(other_instance_labels)) # Find object based on id
+        #     test_instance_labels, test_choices, flag_exceed = choose_label_pc(other_instance_labels, target_obj_label, 200, return_choices=True)
+        #     instance_labels = np.concatenate((instance_labels,test_instance_labels),axis=0) 
+        #     point_cloud     = np.concatenate((point_cloud,other_point_cloud[test_choices]),axis=0) 
+        #     semantic_labels = np.concatenate((semantic_labels,other_semantic_labels[test_choices]),axis=0)
+        #     pcl_color       = np.concatenate((pcl_color,other_pcl_color[test_choices]),axis=0)
 
-            # Find box
-            for i, gt_id in enumerate(other_instance_bboxes[:other_instance_bboxes.shape[0],-1]):
-                if gt_id == other_object_id:
-                    ref_box_label = 1
-                    # TODO Find the right box
-                    other_instance_bboxes[]
-                    # ref_center_label = target_bboxes[i, 0:3]
-                    # ref_heading_class_label = angle_classes[i]
-                    # ref_heading_residual_label = angle_residuals[i]
-                    # ref_size_class_label = size_classes[i]
-                    # ref_size_residual_label = size_residuals[i]
+        #     # Find box
+        #     for i, gt_id in enumerate(other_instance_bboxes[:other_instance_bboxes.shape[0],-1]):
+        #         if gt_id == other_object_id:
+        #             ref_box_label = 1
+        #             # TODO Find the right box
+        #             # other_instance_bboxes[] 
+        #             # ref_center_label = target_bboxes[i, 0:3]
+        #             # ref_heading_class_label = angle_classes[i]
+        #             # ref_heading_residual_label = angle_residuals[i]
+        #             # ref_size_class_label = size_classes[i]
+        #             # ref_size_residual_label = size_residuals[i]
 
         point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)
         instance_labels = instance_labels[choices]

@@ -240,95 +240,95 @@ def compute_reference_loss(data_dict, config,num_sample_contra):
     criterion = SoftmaxRankingLoss()
     loss = criterion(cluster_preds, cluster_labels.float().clone())
 
-    # 1 vs all other objects with same label, across the entire batch 
-    all_gt_center_label             = data_dict['center_label'].cpu().numpy()           # (B,128,3)
-    all_gt_heading_class_label      = data_dict["heading_class_label"].cpu().numpy()    # (B,128,3)
-    all_gt_heading_residual_label   = data_dict["heading_residual_label"].cpu().numpy() # (B,128)
-    all_gt_size_class_label         = data_dict["size_class_label"].cpu().numpy()       # (B,128)
-    all_gt_size_residual_label      = data_dict["size_residual_label"].cpu().numpy()    # (B,128,3)
+    # # 1 vs all other objects with same label, across the entire batch 
+    # all_gt_center_label             = data_dict['center_label'].cpu().numpy()           # (B,128,3)
+    # all_gt_heading_class_label      = data_dict["heading_class_label"].cpu().numpy()    # (B,128,3)
+    # all_gt_heading_residual_label   = data_dict["heading_residual_label"].cpu().numpy() # (B,128)
+    # all_gt_size_class_label         = data_dict["size_class_label"].cpu().numpy()       # (B,128)
+    # all_gt_size_residual_label      = data_dict["size_residual_label"].cpu().numpy()    # (B,128,3)
 
-    all_gt_sem_labels               = data_dict['size_class_label'].cpu().numpy()
-    all_gt_num_bbox                 = data_dict['num_bbox'].cpu().numpy()               #(B)
-    all_gt_box_label                = data_dict['ref_box_label'].cpu().numpy()          #(B)
-    gt_obj_id                       = data_dict['object_id'].cpu().numpy()              #(B,128)
-    loss_contrastive = []
-    label_done = []
+    # all_gt_sem_labels               = data_dict['size_class_label'].cpu().numpy()
+    # all_gt_num_bbox                 = data_dict['num_bbox'].cpu().numpy()               #(B)
+    # all_gt_box_label                = data_dict['ref_box_label'].cpu().numpy()          #(B)
+    # gt_obj_id                       = data_dict['object_id'].cpu().numpy()              #(B,128)
+    # loss_contrastive = []
+    # label_done = []
 
-    flag_add_threshold = num_sample_contra if num_sample_contra!=None else 1
-    # Loop1: Each batch. (B)
-    for indx in range(len(all_gt_sem_labels)):
-        current_label = gt_size_class[indx]
-        label_done.append(current_label)
+    # flag_add_threshold = num_sample_contra if num_sample_contra!=None else 1
+    # # Loop1: Each batch. (B)
+    # for indx in range(len(all_gt_sem_labels)):
+    #     current_label = gt_size_class[indx]
+    #     label_done.append(current_label)
         
-        # Initial output, the first item is the postive sample
-        out       = np.array(pred_ref[indx][ref_iou_idx[indx]])
-        out_label = np.array(1.0)
-        flag_add  = 0
+    #     # Initial output, the first item is the postive sample
+    #     out       = np.array(pred_ref[indx][ref_iou_idx[indx]])
+    #     out_label = np.array(1.0)
+    #     flag_add  = 0
 
-        # Loop2: Compare current batch to all batches (B)
-        for indx2 in range(len(all_gt_sem_labels)):
-            if flag_add >= flag_add_threshold: break
-            item_list = all_gt_sem_labels[indx2]  # Items in the compare batch
+    #     # Loop2: Compare current batch to all batches (B)
+    #     for indx2 in range(len(all_gt_sem_labels)):
+    #         if flag_add >= flag_add_threshold: break
+    #         item_list = all_gt_sem_labels[indx2]  # Items in the compare batch
 
-            # Loop3: Each object in the same scene (128)
-            for indx_test in range(len(item_list)):
-                if flag_add >= flag_add_threshold: break
-                #Stop if exceeding number of obj
-                if indx_test >= all_gt_num_bbox[indx2]-1 :
-                    break
+    #         # Loop3: Each object in the same scene (128)
+    #         for indx_test in range(len(item_list)):
+    #             if flag_add >= flag_add_threshold: break
+    #             #Stop if exceeding number of obj
+    #             if indx_test >= all_gt_num_bbox[indx2]-1 :
+    #                 break
                 
-                match_label_same = all_gt_box_label[indx][indx_test] if indx == indx2 else 0  # Don't add the it self twice if in the same batch
-                # Find the object in same scene with same label
-                if current_label == item_list[indx_test] and match_label_same != 1:
-                    # print('Batch indx1 :', indx, 'Batch indx2 :', indx2, " item index : ", indx_test, "out :", out.shape)
-                    # Comparing 
-                    # get required data 
-                    match_center_label              = all_gt_center_label[indx2][indx_test]
-                    match_heading_class_label       = all_gt_heading_class_label[indx2][indx_test]
-                    match_heading_residual_label    = all_gt_heading_residual_label[indx2][indx_test]
-                    match_size_class_label          = all_gt_size_class_label[indx2][indx_test]
-                    match_size_residual_label       = all_gt_size_residual_label[indx2][indx_test]
+    #             match_label_same = all_gt_box_label[indx][indx_test] if indx == indx2 else 0  # Don't add the it self twice if in the same batch
+    #             # Find the object in same scene with same label
+    #             if current_label == item_list[indx_test] and match_label_same != 1:
+    #                 # print('Batch indx1 :', indx, 'Batch indx2 :', indx2, " item index : ", indx_test, "out :", out.shape)
+    #                 # Comparing 
+    #                 # get required data 
+    #                 match_center_label              = all_gt_center_label[indx2][indx_test]
+    #                 match_heading_class_label       = all_gt_heading_class_label[indx2][indx_test]
+    #                 match_heading_residual_label    = all_gt_heading_residual_label[indx2][indx_test]
+    #                 match_size_class_label          = all_gt_size_class_label[indx2][indx_test]
+    #                 match_size_residual_label       = all_gt_size_residual_label[indx2][indx_test]
 
-                    # convert gt bbox parameters to bbox corners
-                    gt_obb        = config.param2obb(match_center_label[0:3], match_heading_class_label, match_heading_residual_label,
-                                    match_size_class_label, match_size_residual_label)
-                    gt_bbox_batch = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])  # rename
+    #                 # convert gt bbox parameters to bbox corners
+    #                 gt_obb        = config.param2obb(match_center_label[0:3], match_heading_class_label, match_heading_residual_label,
+    #                                 match_size_class_label, match_size_residual_label)
+    #                 gt_bbox_batch = get_3d_box(gt_obb[3:6], gt_obb[6], gt_obb[0:3])  # rename
 
-                    # convert the bbox parameters to bbox corners
-                    pred_obb_batch = config.param2obb_batch(pred_center[indx2, :, 0:3], pred_heading_class[indx2], pred_heading_residual[indx2],
-                                        pred_size_class[indx2], pred_size_residual[indx2])
-                    pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
-                    # Find highest IOU to find box
-                    ious                     = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch, (num_proposals, 1, 1)))
-                    labels[i, ious.argmax()] = 1        # treat the bbox with highest iou score as the gt
-                    out                      = np.append(out,pred_ref[indx2][ious.argmax()])
-                    out_label                = np.append(out_label,0)
-                    flag_add                 += 1
+    #                 # convert the bbox parameters to bbox corners
+    #                 pred_obb_batch = config.param2obb_batch(pred_center[indx2, :, 0:3], pred_heading_class[indx2], pred_heading_residual[indx2],
+    #                                     pred_size_class[indx2], pred_size_residual[indx2])
+    #                 pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+    #                 # Find highest IOU to find box
+    #                 ious                     = box3d_iou_batch(pred_bbox_batch, np.tile(gt_bbox_batch, (num_proposals, 1, 1)))
+    #                 labels[i, ious.argmax()] = 1        # treat the bbox with highest iou score as the gt
+    #                 out                      = np.append(out,pred_ref[indx2][ious.argmax()])
+    #                 out_label                = np.append(out_label,0)
+    #                 flag_add                 += 1
                     
-        # out in a batch is a 'list' of boxex where the first one is positive sample
-        if flag_add != 0:
-            out       = torch.FloatTensor(out)
-            out_label = torch.FloatTensor(out_label)
-            test1     = out.float().clone()
-            test2     = out_label.float().clone()
-            # assert test1.shape == test2.shape
-            # print("test1",test1.shape)
-            # print("test2",test2.shape)
-            loss_temp = criterion(test1, test2,dim_in=0)
-            loss_contrastive.append(loss_temp)
+    #     # out in a batch is a 'list' of boxex where the first one is positive sample
+    #     if flag_add != 0:
+    #         out       = torch.FloatTensor(out)
+    #         out_label = torch.FloatTensor(out_label)
+    #         test1     = out.float().clone()
+    #         test2     = out_label.float().clone()
+    #         # assert test1.shape == test2.shape
+    #         # print("test1",test1.shape)
+    #         # print("test2",test2.shape)
+    #         loss_temp = criterion(test1, test2,dim_in=0)
+    #         loss_contrastive.append(loss_temp)
 
-        # Calculate the loss in each batch and append to result
+    #     # Calculate the loss in each batch and append to result
 
-    # Mean result
-    loss_contrastive = torch.stack(loss_contrastive)
-    loss_contrastive = torch.mean(loss_contrastive)
-    loss_contrastive = loss_contrastive.cuda()
-    loss_contrastive.requires_grad=True
-
-
+    # # Mean result
+    # loss_contrastive = torch.stack(loss_contrastive)
+    # loss_contrastive = torch.mean(loss_contrastive)
+    # loss_contrastive = loss_contrastive.cuda()
+    # loss_contrastive.requires_grad=True
 
 
-    return loss, loss_contrastive, cluster_preds, cluster_labels
+
+    return loss, cluster_preds, cluster_labels
+    # return loss, loss_contrastive, cluster_preds, cluster_labels
 
 def compute_lang_classification_loss(data_dict):
     criterion = torch.nn.CrossEntropyLoss()
@@ -388,14 +388,14 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     if reference:
         # Reference loss
-        ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config,num_sample_contra)
+        ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config,num_sample_contra)
         # ref_loss = torch.zeros(1)[0].cuda()
         # contr_loss = torch.zeros(1)[0].cuda()
         # cluster_labels = objectness_label.new_zeros(objectness_label.shape).cuda()
         
         data_dict["cluster_labels"] = cluster_labels
         data_dict["ref_loss"] = ref_loss
-        data_dict["contr_loss"] = contr_loss
+        # data_dict["contr_loss"] = contr_loss
     else:
         # # Reference loss
         # ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
@@ -405,7 +405,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
         # store
         data_dict["ref_loss"] = torch.zeros(1)[0].cuda()
-        data_dict["contr_loss"] = torch.zeros(1)[0].cuda()
+        # data_dict["contr_loss"] = torch.zeros(1)[0].cuda()
 
     if reference and use_lang_classifier:
         data_dict["lang_loss"] = compute_lang_classification_loss(data_dict)
@@ -414,8 +414,8 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     # Final loss function
     loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] \
-        + 0.1*data_dict["ref_loss"] + data_dict["lang_loss"] \
-        + 1*data_dict["contr_loss"]
+        + 0.1*data_dict["ref_loss"] + 0.1* data_dict["lang_loss"] 
+        # + 1*data_dict["contr_loss"]
     
     loss *= 10 # amplify
 
