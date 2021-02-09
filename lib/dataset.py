@@ -89,9 +89,9 @@ class ScannetReferenceDataset(Dataset):
                 idx_other = random.randint(0,len(self.scanrefer))
 
             other_scene_id = self.scanrefer[idx_other]["scene_id"]
-            object_id = int(self.scanrefer[idx_other]["object_id"])
-            object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
-            ann_id = self.scanrefer[idx_other]["ann_id"]
+            other_object_id = int(self.scanrefer[idx_other]["object_id"])
+            other_object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
+            other_ann_id = self.scanrefer[idx_other]["ann_id"]
 
             # get pc
             other_mesh_vertices = self.scene_data[other_scene_id]["mesh_vertices"]
@@ -107,6 +107,18 @@ class ScannetReferenceDataset(Dataset):
             point_cloud     = np.concatenate((point_cloud,other_point_cloud[test_choices]),axis=0) 
             semantic_labels = np.concatenate((semantic_labels,other_semantic_labels[test_choices]),axis=0)
             pcl_color       = np.concatenate((pcl_color,other_pcl_color[test_choices]),axis=0)
+
+            # Find box
+            for i, gt_id in enumerate(other_instance_bboxes[:other_instance_bboxes.shape[0],-1]):
+                if gt_id == other_object_id:
+                    ref_box_label = 1
+                    # TODO Find the right box
+                    other_instance_bboxes[]
+                    # ref_center_label = target_bboxes[i, 0:3]
+                    # ref_heading_class_label = angle_classes[i]
+                    # ref_heading_residual_label = angle_residuals[i]
+                    # ref_size_class_label = size_classes[i]
+                    # ref_size_residual_label = size_residuals[i]
 
         point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)
         instance_labels = instance_labels[choices]
