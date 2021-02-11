@@ -53,7 +53,7 @@ class ScannetReferenceDataset(Dataset):
         self.use_normal = use_normal        
         self.use_multiview = use_multiview
         self.augment = augment
-        self.cp_aug = 
+        self.cp_aug = cp_aug
 
         # load data
         self._load_data()
