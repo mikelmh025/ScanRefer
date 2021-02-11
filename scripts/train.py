@@ -35,7 +35,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_height=(not args.no_height),
         use_color=args.use_color, 
         use_normal=args.use_normal, 
-        use_multiview=args.use_multiview
+        use_multiview=args.use_multiview,
+        cp_aug=args.cp_aug
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
@@ -256,6 +257,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--no_height", action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_augment", action="store_true", help="Do NOT use height signal in input.")
+    
+    parser.add_argument("--cp_aug", action="store_true", help="Use copy paste augmentation")
+
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_detection", action="store_true", help="Do NOT train the detection module.")
     parser.add_argument("--no_reference", action="store_true", help="Do NOT train the localization module.")
