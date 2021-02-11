@@ -72,7 +72,7 @@ def get_model(args):
             no_reference=True
         )
 
-        pretrained_path = os.path.join(CONF.PATH.OUTPUT, args.use_pretrained, "model_last.pth")
+        pretrained_path = os.path.join(args.use_pretrained, "model_last.pth")
         pretrained_model.load_state_dict(torch.load(pretrained_path), strict=False)
 
         # mount
