@@ -84,7 +84,7 @@ class ScannetReferenceDataset(Dataset):
         
         if self.cp_aug and self.split != 'test':
             # Choose examples from other scene
-            num_obj_add =  MAX_NUM_OBJ - instance_bboxes.shape[0]
+            num_obj_add =  64 - instance_bboxes.shape[0]
             for i in range(num_obj_add):
                 idx_other = random.randint(0,len(self.scanrefer)-1)
                 while idx_other== idx:
