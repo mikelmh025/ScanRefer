@@ -104,7 +104,7 @@ class ScannetReferenceDataset(Dataset):
                 other_instance_bboxes = self.scene_data[other_scene_id]["instance_bboxes"]
                 other_point_cloud,other_pcl_color = self.process_pc(other_mesh_vertices,scene_id)
 
-                jitter_idx = 1.0 #random.random()*0.45 +0.8 # Standard scale jittering
+                jitter_idx = random.random()*0.45 +0.8 # Standard scale jittering
 
                 # Random pick object and append to the current scene
                 target_obj_label = random.randint(0,np.max(other_instance_labels)) # Find object based on id
