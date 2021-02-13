@@ -55,7 +55,8 @@ def get_model(args, config):
         num_proposal=args.num_proposals,
         input_feature_dim=input_channels,
         use_lang_classifier=(not args.no_lang_cls),
-        use_bidir=args.use_bidir
+        use_bidir=args.use_bidir,
+        attn=args.self_attn,
     ).cuda()
 
     devices = [int(x) for x in args.devices]
@@ -453,6 +454,8 @@ if __name__ == "__main__":
     parser.add_argument("--reference", action="store_true", help="evaluate the reference localization results")
     parser.add_argument("--detection", action="store_true", help="evaluate the object detection results")
     parser.add_argument("--devices", nargs='+', type=str, default=['0', '1', '2', '3'], help="devices to use")
+
+    parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
     args = parser.parse_args()
 
     # setting

@@ -7,11 +7,11 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 class LangModule(nn.Module):
     def __init__(self, num_text_classes, use_lang_classifier=True, use_bidir=False, 
-        emb_size=300, hidden_size=256):
+        emb_size=300, hidden_size=256,attn=False):
         super().__init__() 
 
         # hidden_size = 128
-
+        self.attn = attn
         self.num_text_classes = num_text_classes
         self.use_lang_classifier = use_lang_classifier
         self.use_bidir = use_bidir
@@ -48,7 +48,7 @@ class LangModule(nn.Module):
         # store the encoded language features
         data_dict["lang_emb"] = lang_last # B, hidden_size
         # always use the overall max sequence length
-        data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
+        if self.attn: data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
         
         # classify
         if self.use_lang_classifier:

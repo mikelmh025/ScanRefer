@@ -55,7 +55,8 @@ def get_model(args, config):
         num_proposal=args.num_proposals,
         input_feature_dim=input_channels,
         use_lang_classifier=(not args.no_lang_cls),
-        use_bidir=args.use_bidir
+        use_bidir=args.use_bidir,
+        attn=args.self_attn,
     ).cuda()
 
     model_name = "model.pth"
@@ -196,6 +197,7 @@ if __name__ == "__main__":
     parser.add_argument("--use_normal", action="store_true", help="Use RGB color in input.")
     parser.add_argument("--use_multiview", action="store_true", help="Use multiview images.")
     parser.add_argument("--use_bidir", action="store_true", help="Use bi-directional GRU.")
+    parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
     args = parser.parse_args()
 
     # setting
@@ -209,3 +211,4 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     predict(args)
+refnetrefnet

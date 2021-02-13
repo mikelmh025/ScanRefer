@@ -62,7 +62,8 @@ def get_model(args):
         num_size_cluster=DC.num_size_cluster,
         mean_size_arr=DC.mean_size_arr,
         num_proposal=args.num_proposals,
-        input_feature_dim=input_channels
+        input_feature_dim=input_channels,
+        attn=args.self_attn,
     ).cuda()
 
     path = os.path.join(CONF.PATH.BASE, args.folder, "model.pth")
@@ -466,6 +467,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_color', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_normal', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_multiview', action='store_true', help='Use multiview images.')
+    parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
     args = parser.parse_args()
 
     # setting

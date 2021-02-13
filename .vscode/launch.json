@@ -45,15 +45,16 @@
             "program": "scripts/train.py",
             "console": "integratedTerminal",
             "args": [
-                "--use_color",
+                "--use_multiview",
                 "--devices",
                 "0",
                 "--batch_size",
-                "14"
+                "14",
+                "--cp_aug"
             ]
         },
         {
-            "name": "Python: debug ",
+            "name": "Python: debug color",
             "type": "python",
             "request": "launch",
             "program": "scripts/train.py",
@@ -65,7 +66,25 @@
                 "--devices",
                 "0",
                 "--batch_size",
-                "7"
+                "7",
+                "--cp_aug",
+            ]
+        },
+        {
+            "name": "Python: debug multiview",
+            "type": "python",
+            "request": "launch",
+            "program": "scripts/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--use_multiview",
+                "--debug",
+                "1",
+                "--devices",
+                "0",
+                "--batch_size",
+                "7",
+                "--cp_aug",
             ]
         }
     ]

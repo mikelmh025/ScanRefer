@@ -55,7 +55,8 @@ def get_model(args):
         num_proposal=args.num_proposals,
         use_lang_classifier=(not args.no_lang_cls),
         use_bidir=args.use_bidir,
-        no_reference=args.no_reference
+        no_reference=args.no_reference,
+        attn=args.self_attn
     )
 
     # trainable model
@@ -70,7 +71,8 @@ def get_model(args):
             num_proposal=args.num_proposals,
             input_feature_dim=input_channels,
             use_bidir=args.use_bidir,
-            no_reference=True
+            no_reference=True,
+            attn=args.self_attn,
         )
 
         pretrained_path = os.path.join(args.use_pretrained, "model_last.pth")
@@ -259,6 +261,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_augment", action="store_true", help="Do NOT use height signal in input.")
     
     parser.add_argument("--cp_aug", action="store_true", help="Use copy paste augmentation")
+    parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
 
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_detection", action="store_true", help="Do NOT train the detection module.")
