@@ -20,6 +20,10 @@ from lib.solver import Solver
 from lib.config import CONF
 from models.refnet import RefNet
 
+from torch.nn.parallel import DistributedDataParallel
+import torch.distributed as dist
+
+
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
 
@@ -102,7 +106,9 @@ def get_model(args):
     model = model.to(device)
     devices = [int(x) for x in args.devices]
     print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
-    model = nn.DataParallel(model, device_ids=devices)
+
+    model = DistributedDataParallel(model, device_ids=devices)
+    # model = nn.DataParallel(model, device_ids=devices)
 
     # model = model.cuda()
 
@@ -283,6 +289,11 @@ if __name__ == "__main__":
     # setting
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     os.environ["CUDA_LAUNCH_BLOCKING"] = "2"
+
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    
+    dist.init_process_group("gloo", rank=0, world_size=1)
 
     # reproducibility
     torch.manual_seed(args.seed)
