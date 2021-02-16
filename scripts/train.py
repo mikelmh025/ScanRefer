@@ -20,8 +20,7 @@ from lib.solver import Solver
 from lib.config import CONF
 from models.refnet import RefNet
 
-from torch.nn.parallel import DistributedDataParallel
-import torch.distributed as dist
+import torch.multiprocessing as mp
 
 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
@@ -104,11 +103,12 @@ def get_model(args):
     is_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if is_cuda else "cpu")
     model = model.to(device)
-    devices = [int(x) for x in args.devices]
-    print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
-
-    model = DistributedDataParallel(model, device_ids=devices)
+    # devices = [int(x) for x in args.devices]
+    # print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
     # model = nn.DataParallel(model, device_ids=devices)
+
+
+
 
     # model = model.cuda()
 
@@ -183,7 +183,7 @@ def get_scannet_scene_list(split):
 
     return scene_list
 
-def get_scanrefer(scanrefer_train, scanrefer_val, num_scenes):
+def get_scanrefer(args,scanrefer_train, scanrefer_val, num_scenes):
     if args.no_reference:
         train_scene_list = get_scannet_scene_list("train")
         new_scanrefer_train = []
@@ -225,10 +225,12 @@ def get_scanrefer(scanrefer_train, scanrefer_val, num_scenes):
 
     return new_scanrefer_train, new_scanrefer_val, all_scene_list
 
+# def train(gpu, args):
 def train(args):
+
     # init training dataset
     print("preparing data...")
-    scanrefer_train, scanrefer_val, all_scene_list = get_scanrefer(SCANREFER_TRAIN, SCANREFER_VAL, args.num_scenes)
+    scanrefer_train, scanrefer_val, all_scene_list = get_scanrefer(args,SCANREFER_TRAIN, SCANREFER_VAL, args.num_scenes)
     scanrefer = {
         "train": scanrefer_train,
         "val": scanrefer_val
@@ -280,6 +282,13 @@ if __name__ == "__main__":
     parser.add_argument("--use_checkpoint", type=str, help="Specify the checkpoint root", default="")
     parser.add_argument("--debug",type=int, default=0, help="set 1 for using mini dataset for debug")
     parser.add_argument("--devices", nargs='+', type=str, default=['0','1','2','3'],help="devices to use")
+
+    parser.add_argument('-n', '--nodes', default=1,
+                        type=int, metavar='N')
+    parser.add_argument('-g', '--gpus', default=1, type=int,
+                        help='number of gpus per node')
+    parser.add_argument('-nr', '--nr', default=0, type=int,
+                        help='ranking within the nodes')
     args = parser.parse_args()
 
     if args.debug != 0:
@@ -290,10 +299,10 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     os.environ["CUDA_LAUNCH_BLOCKING"] = "2"
 
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
-
-    dist.init_process_group("gloo", rank=0, world_size=len(args.devices))
+    args.world_size = args.gpus * args.nodes                #
+    os.environ['MASTER_ADDR'] = '10.57.23.164'              #
+    os.environ['MASTER_PORT'] = '8888'                      #
+    
 
     # reproducibility
     torch.manual_seed(args.seed)
@@ -302,4 +311,5 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     train(args)
-    
+
+    # mp.spawn(train, args=(args,),nprocs=args.gpus)

@@ -5,6 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Vis: debug",
             "type": "python",
             "request": "launch",
@@ -16,7 +23,6 @@
                 "--scene_id",
                 "scene0011_00",
                 "--use_color"
-
             ]
         },
         {
