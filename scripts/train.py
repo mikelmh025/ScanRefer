@@ -292,8 +292,8 @@ if __name__ == "__main__":
 
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
-    
-    dist.init_process_group("gloo", rank=0, world_size=1)
+
+    dist.init_process_group("gloo", rank=0, world_size=len(args.devices))
 
     # reproducibility
     torch.manual_seed(args.seed)
