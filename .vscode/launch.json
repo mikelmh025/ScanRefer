@@ -66,8 +66,8 @@
                 "--devices",
                 "0",
                 "--batch_size",
-                "7",
-                "--cp_aug",
+                "14",
+                "--self_attn",
             ]
         },
         {
