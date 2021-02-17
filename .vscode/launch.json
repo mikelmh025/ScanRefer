@@ -72,8 +72,10 @@
                 "--devices",
                 "0",
                 "--batch_size",
-                "14",
+                "6",
                 "--self_attn",
+                "--num_workers",
+                "1"
             ]
         },
         {

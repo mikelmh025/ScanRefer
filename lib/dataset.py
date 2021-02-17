@@ -462,6 +462,18 @@ class ScannetReferenceDataset(Dataset):
 
         # add scannet data
         self.scene_list = sorted(list(set([data["scene_id"] for data in self.scanrefer])))
+        
+        # prepare class mapping
+        lines = [line.rstrip() for line in open(SCANNET_V2_TSV)]
+        lines = lines[1:]
+        raw2nyuid = {}
+        self.obj_lib = {}
+        for i in range(len(lines)):
+            elements = lines[i].split('\t')
+            raw_name = elements[1]
+            nyu40_name = int(elements[4])
+            raw2nyuid[raw_name] = nyu40_name
+            self.obj_lib[nyu40_name] = []
 
         # load scene data
         self.scene_data = {}
@@ -474,20 +486,60 @@ class ScannetReferenceDataset(Dataset):
             # self.scene_data[scene_id]["instance_bboxes"] = np.load(os.path.join(CONF.PATH.SCANNET_DATA, scene_id)+"_bbox.npy")
             self.scene_data[scene_id]["instance_bboxes"] = np.load(os.path.join(CONF.PATH.SCANNET_DATA, scene_id)+"_aligned_bbox.npy")
 
-        # prepare class mapping
-        lines = [line.rstrip() for line in open(SCANNET_V2_TSV)]
-        lines = lines[1:]
-        raw2nyuid = {}
-        for i in range(len(lines)):
-            elements = lines[i].split('\t')
-            raw_name = elements[1]
-            nyu40_name = int(elements[4])
-            raw2nyuid[raw_name] = nyu40_name
+            instance_labels = self.scene_data[scene_id]["instance_labels"]
+            for label in range(np.min(instance_labels), np.max(instance_labels)):
+                selected_instance_labels, choices, _ = choose_label_pc(instance_labels,label,200,return_choices=True)
+                selected_semantic_labels = self.scene_data[scene_id]["semantic_labels"][choices]
+                selected_mesh_vertices = self.scene_data[scene_id]["mesh_vertices"][choices]
+                selected_instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
+
+                obj_data = {}
+                obj_data["mesh_vertices"] = selected_mesh_vertices
+                obj_data["instance_labels"] = selected_instance_labels
+                obj_data["semantic_labels"] = selected_semantic_labels
+                # TODO: Make this work
+                obj_data["instance_bboxes"] = selected_instance_bboxes
+                obj_data["scene_id"] = scene_id
+                
+                #Append object to library
+                if np.max(selected_semantic_labels) != 0:
+                    self.obj_lib[np.max(selected_semantic_labels)].append(obj_data) 
+
+        
 
         # store
         self.raw2nyuid = raw2nyuid
         self.raw2label = self._get_raw2label()
         self.unique_multiple_lookup = self._get_unique_multiple_lookup()
+
+        # # Loop through each scene
+        # for scene_id in self.scene_list:
+        #     # loop through each objects
+        #     instance_labels = self.scene_data[scene_id]["instance_labels"]
+        #     for label in range(np.min(instance_labels), np.max(instance_labels)):
+        #         selected_instance_labels, choices, _ = choose_label_pc(instance_labels,label,200,return_choices=True)
+        #         selected_semantic_labels = self.scene_data[scene_id]["semantic_labels"][choices]
+        #         selected_mesh_vertices = self.scene_data[scene_id]["mesh_vertices"][choices]
+        #         selected_instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
+
+        #         obj_data = {}
+        #         obj_data["mesh_vertices"] = selected_mesh_vertices
+        #         obj_data["instance_labels"] = selected_instance_labels
+        #         obj_data["semantic_labels"] = selected_semantic_labels
+        #         # TODO: Make this work
+        #         obj_data["instance_bboxes"] = selected_instance_bboxes
+        #         obj_data["scene_id"] = scene_id
+                
+        #         #Append object to library
+        #         if np.max(selected_semantic_labels) != 0:
+        #             self.obj_lib[np.max(selected_semantic_labels)].append(obj_data) 
+                
+        #         # selected_instance_bboxes
+            
+            
+        #     self.scene_data[scene_id]["instance_bboxes"]
+
+            
 
     def _translate(self, point_set, bbox):
         # unpack

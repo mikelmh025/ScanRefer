@@ -42,7 +42,7 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         cp_aug=args.cp_aug
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=16)
+    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
     return dataset, dataloader
 
@@ -103,9 +103,9 @@ def get_model(args):
     is_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if is_cuda else "cpu")
     model = model.to(device)
-    # devices = [int(x) for x in args.devices]
-    # print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
-    # model = nn.DataParallel(model, device_ids=devices)
+    devices = [int(x) for x in args.devices]
+    print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
+    model = nn.DataParallel(model, device_ids=devices)
 
 
 
@@ -264,6 +264,9 @@ if __name__ == "__main__":
     parser.add_argument("--num_points", type=int, default=40000, help="Point Number [default: 40000]")
     parser.add_argument("--num_proposals", type=int, default=256, help="Proposal number [default: 256]")
     parser.add_argument("--num_scenes", type=int, default=-1, help="Number of scenes [default: -1]")
+
+    parser.add_argument("--num_workers", type=int, default=16, help="Number of workers for dataloader [default: 16]")
+
     parser.add_argument("--seed", type=int, default=42, help="random seed")
     parser.add_argument("--no_height", action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_augment", action="store_true", help="Do NOT use height signal in input.")
@@ -299,9 +302,9 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     os.environ["CUDA_LAUNCH_BLOCKING"] = "2"
 
-    args.world_size = args.gpus * args.nodes                #
-    os.environ['MASTER_ADDR'] = '10.57.23.164'              #
-    os.environ['MASTER_PORT'] = '8888'                      #
+    # args.world_size = args.gpus * args.nodes                #
+    # os.environ['MASTER_ADDR'] = '10.57.23.164'              #
+    # os.environ['MASTER_PORT'] = '8888'                      #
     
 
     # reproducibility
