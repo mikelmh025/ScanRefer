@@ -81,6 +81,38 @@ class ScannetReferenceDataset(Dataset):
         instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
 
         point_cloud,pcl_color = self.process_pc(mesh_vertices,scene_id)
+
+        # Add negative samples
+        # TODO: self.cp_aug_neg, num_obj_add make it paramerter
+        self.cp_aug_neg = True
+        if self.cp_aug_neg and self.split != 'test':
+            num_obj_add =  5
+            # NOTE: set size class as semantic class. Consider use size2class.
+            size_classes = np.zeros((MAX_NUM_OBJ,))
+            num_bbox = instance_bboxes.shape[0] if instance_bboxes.shape[0] < MAX_NUM_OBJ else MAX_NUM_OBJ
+            class_ind = [DC.nyu40id2class[int(x)] for x in instance_bboxes[:num_bbox,-2]]
+            size_classes[0:num_bbox] = class_ind
+            for i, gt_id in enumerate(instance_bboxes[:num_bbox,-1]):
+                if gt_id == object_id:
+                    ref_sem_label = instance_bboxes[i,-2]
+
+            # for i in range(num_obj_add):
+            list_obj = self.obj_lib[ref_sem_label]
+            if len(list_obj) != 0: 
+                selected_neg_obj = random.sample(list_obj,len(list_obj)) if len(list_obj) <= num_obj_add else random.sample(list_obj,num_obj_add)
+
+            for item in (selected_neg_obj):
+                other_point_cloud,other_pcl_color = self.process_pc(item["mesh_vertices"],item["scene_id"])
+                point_cloud     = np.concatenate((point_cloud,other_point_cloud),axis=0) 
+                pcl_color       = np.concatenate((pcl_color,other_pcl_color),axis=0) 
+                semantic_labels = np.concatenate((semantic_labels,item["semantic_labels"]),axis=0)
+                instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(item["instance_bboxes"])),axis=0)
+
+                obj_instance_labels = np.empty(item["instance_labels"].shape)
+                obj_instance_labels.fill(np.max(instance_labels) +1)
+
+                instance_labels = np.concatenate((instance_labels,obj_instance_labels),axis=0)
+                  
         
         if self.cp_aug and self.split != 'test':
             # Choose examples from other scene
@@ -494,18 +526,28 @@ class ScannetReferenceDataset(Dataset):
                 selected_instance_bboxes = self.scene_data[scene_id]["instance_bboxes"]
 
                 obj_data = {}
+                obj_data["scene_id"] = scene_id
                 obj_data["mesh_vertices"] = selected_mesh_vertices
                 obj_data["instance_labels"] = selected_instance_labels
                 obj_data["semantic_labels"] = selected_semantic_labels
-                # TODO: Make this work
-                obj_data["instance_bboxes"] = selected_instance_bboxes
-                obj_data["scene_id"] = scene_id
-                
-                #Append object to library
-                if np.max(selected_semantic_labels) != 0:
-                    self.obj_lib[np.max(selected_semantic_labels)].append(obj_data) 
+                # TODO: Make this work, check sematic 
+                # obj_data["instance_bboxes"] = selected_instance_bboxes
+                add_flag = 0
+                for i, gt_id in enumerate(selected_instance_bboxes[:selected_instance_bboxes.shape[0],-1]):
+                    if gt_id == np.min(selected_instance_labels):
+                        obj_data["instance_bboxes"] = selected_instance_bboxes[i].copy()
+                        add_flag = 1
+                        break
+                        # instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(select)),axis=0)
+
+                # If has box, Append object to library
+                if add_flag == 1 :
+                    if np.max(selected_semantic_labels) != 0:
+                        self.obj_lib[np.max(selected_semantic_labels)].append(obj_data) 
 
         
+                            
+                
 
         # store
         self.raw2nyuid = raw2nyuid

@@ -68,7 +68,7 @@
             "args": [
                 "--use_color",
                 "--debug",
-                "1",
+                "0",
                 "--devices",
                 "0",
                 "--batch_size",
