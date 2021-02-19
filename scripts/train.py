@@ -271,7 +271,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_height", action="store_true", help="Do NOT use height signal in input.")
     parser.add_argument("--no_augment", action="store_true", help="Do NOT use height signal in input.")
     
-    parser.add_argument("--cp_aug", action="store_true", help="Use copy paste augmentation")
+    parser.add_argument("--cp_aug", type=int, default=0, help="number of negative sample augmentation")
     parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
 
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")

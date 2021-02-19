@@ -83,10 +83,10 @@ class ScannetReferenceDataset(Dataset):
         point_cloud,pcl_color = self.process_pc(mesh_vertices,scene_id)
 
         # Add negative samples
-        # TODO: self.cp_aug_neg, num_obj_add make it paramerter
-        self.cp_aug_neg = True
-        if self.cp_aug_neg and self.split != 'test':
-            num_obj_add =  5
+        num_obj_add =  self.cp_aug
+        neg_box = np.zeros((num_obj_add, 6))
+        if self.cp_aug!=0 and self.split != 'test':
+    
             # NOTE: set size class as semantic class. Consider use size2class.
             size_classes = np.zeros((MAX_NUM_OBJ,))
             num_bbox = instance_bboxes.shape[0] if instance_bboxes.shape[0] < MAX_NUM_OBJ else MAX_NUM_OBJ
@@ -101,67 +101,68 @@ class ScannetReferenceDataset(Dataset):
             if len(list_obj) != 0: 
                 selected_neg_obj = random.sample(list_obj,len(list_obj)) if len(list_obj) <= num_obj_add else random.sample(list_obj,num_obj_add)
 
-            for item in (selected_neg_obj):
-                other_point_cloud,other_pcl_color = self.process_pc(item["mesh_vertices"],item["scene_id"])
-                point_cloud     = np.concatenate((point_cloud,other_point_cloud),axis=0) 
-                pcl_color       = np.concatenate((pcl_color,other_pcl_color),axis=0) 
-                semantic_labels = np.concatenate((semantic_labels,item["semantic_labels"]),axis=0)
-                instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(item["instance_bboxes"])),axis=0)
+                for (index, item) in enumerate(selected_neg_obj):
+                    other_point_cloud,other_pcl_color = self.process_pc(item["mesh_vertices"],item["scene_id"])
+                    point_cloud     = np.concatenate((point_cloud,other_point_cloud),axis=0) 
+                    pcl_color       = np.concatenate((pcl_color,other_pcl_color),axis=0) 
+                    semantic_labels = np.concatenate((semantic_labels,item["semantic_labels"]),axis=0)
+                    instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(item["instance_bboxes"])),axis=0)
+                    neg_box[index,:] = item["instance_bboxes"][0:6]
 
-                obj_instance_labels = np.empty(item["instance_labels"].shape)
-                obj_instance_labels.fill(np.max(instance_labels) +1)
+                    obj_instance_labels = np.empty(item["instance_labels"].shape)
+                    obj_instance_labels.fill(np.max(instance_labels) +1)
 
-                instance_labels = np.concatenate((instance_labels,obj_instance_labels),axis=0)
-                  
+                    instance_labels = np.concatenate((instance_labels,obj_instance_labels),axis=0)
+                    
         
-        if self.cp_aug and self.split != 'test':
-            # Choose examples from other scene
-            num_obj_add =  32 - instance_bboxes.shape[0]
-            for i in range(num_obj_add):
-                idx_other = random.randint(0,len(self.scanrefer)-1)
-                while idx_other== idx:
-                    idx_other = random.randint(0,len(self.scanrefer)-1)
-                try:
-                    other_scene_id = self.scanrefer[idx_other]["scene_id"]
-                    other_object_id = int(self.scanrefer[idx_other]["object_id"])
-                    other_object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
-                    other_ann_id = self.scanrefer[idx_other]["ann_id"]
-                except IndexError:
-                    print("Index Error: Selecting an index out of range")
+        # if self.cp_aug and self.split != 'test':
+        #     # Choose examples from other scene
+        #     num_obj_add =  32 - instance_bboxes.shape[0]
+        #     for i in range(num_obj_add):
+        #         idx_other = random.randint(0,len(self.scanrefer)-1)
+        #         while idx_other== idx:
+        #             idx_other = random.randint(0,len(self.scanrefer)-1)
+        #         try:
+        #             other_scene_id = self.scanrefer[idx_other]["scene_id"]
+        #             other_object_id = int(self.scanrefer[idx_other]["object_id"])
+        #             other_object_name = " ".join(self.scanrefer[idx_other]["object_name"].split("_"))
+        #             other_ann_id = self.scanrefer[idx_other]["ann_id"]
+        #         except IndexError:
+        #             print("Index Error: Selecting an index out of range")
 
-                # get pc
-                other_mesh_vertices = self.scene_data[other_scene_id]["mesh_vertices"]
-                other_instance_labels = self.scene_data[other_scene_id]["instance_labels"]
-                other_semantic_labels = self.scene_data[other_scene_id]["semantic_labels"]
-                other_instance_bboxes = self.scene_data[other_scene_id]["instance_bboxes"]
-                other_point_cloud,other_pcl_color = self.process_pc(other_mesh_vertices,scene_id)
+        #         # get pc
+        #         other_mesh_vertices = self.scene_data[other_scene_id]["mesh_vertices"]
+        #         other_instance_labels = self.scene_data[other_scene_id]["instance_labels"]
+        #         other_semantic_labels = self.scene_data[other_scene_id]["semantic_labels"]
+        #         other_instance_bboxes = self.scene_data[other_scene_id]["instance_bboxes"]
+        #         other_point_cloud,other_pcl_color = self.process_pc(other_mesh_vertices,scene_id)
 
-                jitter_idx = 1#random.random()*0.45 +0.8 # Standard scale jittering
+        #         jitter_idx = 1#random.random()*0.45 +0.8 # Standard scale jittering
 
-                # Random pick object and append to the current scene
-                target_obj_label = random.randint(0,np.max(other_instance_labels)) # Find object based on id
-                test_instance_labels, test_choices, flag_exceed = choose_label_pc(other_instance_labels, target_obj_label, 200, return_choices=True)
-                test_instance_labels = np.empty(test_instance_labels.shape)
+        #         # Random pick object and append to the current scene
+        #         target_obj_label = random.randint(0,np.max(other_instance_labels)) # Find object based on id
+        #         test_instance_labels, test_choices, flag_exceed = choose_label_pc(other_instance_labels, target_obj_label, 200, return_choices=True)
+        #         test_instance_labels = np.empty(test_instance_labels.shape)
                 
-                other_point_cloud_jitter = other_point_cloud[test_choices].copy()
-                # other_point_cloud_jitter[:,0:3] *= jitter_idx
-                point_cloud     = np.concatenate((point_cloud,other_point_cloud_jitter),axis=0) 
-                semantic_labels = np.concatenate((semantic_labels,other_semantic_labels[test_choices]),axis=0)
-                pcl_color       = np.concatenate((pcl_color,other_pcl_color[test_choices]),axis=0)
+        #         other_point_cloud_jitter = other_point_cloud[test_choices].copy()
+        #         # other_point_cloud_jitter[:,0:3] *= jitter_idx
+        #         point_cloud     = np.concatenate((point_cloud,other_point_cloud_jitter),axis=0) 
+        #         semantic_labels = np.concatenate((semantic_labels,other_semantic_labels[test_choices]),axis=0)
+        #         pcl_color       = np.concatenate((pcl_color,other_pcl_color[test_choices]),axis=0)
 
-                # Find the right box in other scene
-                flag_add_instance = 0
-                for i, gt_id in enumerate(other_instance_bboxes[:other_instance_bboxes.shape[0],-1]):
-                    if gt_id == other_object_id:
-                        select = other_instance_bboxes[i].copy()
-                        select[-1] = np.max(instance_bboxes) +1
-                        test_instance_labels.fill(np.max(instance_bboxes) +1)
-                        instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(select)),axis=0)
-                        instance_labels = np.concatenate((instance_labels,test_instance_labels),axis=0)
-                        flag_add_instance = 1
-                        break
-                if flag_add_instance == 0:
-                    print("Warning: Did not add a box from another scene, something wrong")
+        #         # Find the right box in other scene
+        #         flag_add_instance = 0
+        #         for i, gt_id in enumerate(other_instance_bboxes[:other_instance_bboxes.shape[0],-1]):
+        #             if gt_id == other_object_id:
+        #                 select = other_instance_bboxes[i].copy()
+        #                 select[-1] = np.max(instance_bboxes) +1
+        #                 test_instance_labels.fill(np.max(instance_bboxes) +1)
+        #                 instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(select)),axis=0)
+        #                 instance_labels = np.concatenate((instance_labels,test_instance_labels),axis=0)
+        #                 flag_add_instance = 1
+        #                 break
+        #         if flag_add_instance == 0:
+        #             print("Warning: Did not add a box from another scene, something wrong")
 
         point_cloud, choices = random_sampling(point_cloud, self.num_points, return_choices=True)
         instance_labels = instance_labels[choices]
@@ -293,6 +294,9 @@ class ScannetReferenceDataset(Dataset):
         data_dict["ref_heading_residual_label"] = np.array(int(ref_heading_residual_label)).astype(np.int64)
         data_dict["ref_size_class_label"] = np.array(int(ref_size_class_label)).astype(np.int64)
         data_dict["ref_size_residual_label"] = ref_size_residual_label.astype(np.float32)
+
+        data_dict["neg_boxes"] = neg_box.astype(np.float32) # The boxes for the negative samples
+
         data_dict["object_id"] = np.array(int(object_id)).astype(np.int64)
         data_dict["ann_id"] = np.array(int(ann_id)).astype(np.int64)
         data_dict["object_cat"] = np.array(object_cat).astype(np.int64)

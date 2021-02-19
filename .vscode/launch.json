@@ -68,12 +68,13 @@
             "args": [
                 "--use_color",
                 "--debug",
-                "0",
+                "1",
                 "--devices",
                 "0",
                 "--batch_size",
                 "6",
-                "--self_attn",
+                "--cp_aug",
+                "5",
                 "--num_workers",
                 "1"
             ]

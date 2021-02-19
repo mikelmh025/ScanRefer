@@ -197,6 +197,9 @@ def compute_reference_loss(data_dict, config):
 
     # unpack
     cluster_preds = data_dict["cluster_ref"] # (B, num_proposal)
+    gt_neg_boxes = data_dict["neg_boxes"].detach().cpu().numpy()  #(B, Added, 6) The feature size of each box is 6
+    gt_neg_boxes = np.zeros((gt_neg_boxes.shape[0], gt_neg_boxes.shape[1],gt_neg_boxes.shape[2]+1))
+    gt_neg_boxes[:,:,0:6] = data_dict["neg_boxes"].detach().cpu().numpy() #(B, Added, 7) The feature size of each box is 6+1
 
     # predicted bbox
     pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,)
@@ -224,6 +227,10 @@ def compute_reference_loss(data_dict, config):
     # compute the iou score for all predictd positive ref
     batch_size, num_proposals = cluster_preds.shape
     labels = np.zeros((batch_size, num_proposals))
+    label_contr = np.zeros((batch_size, 1+gt_neg_boxes.shape[1])) #(B, 1+neg)
+    pred_contr = np.zeros((batch_size, 1+gt_neg_boxes.shape[1])) #(B, 1+neg)
+    neg_iou_idx = np.zeros((batch_size, 1+gt_neg_boxes.shape[1]))
+
     ref_iou_idx = []
     for i in range(pred_ref.shape[0]):
         # convert the bbox parameters to bbox corners
@@ -234,11 +241,28 @@ def compute_reference_loss(data_dict, config):
         labels[i, ious.argmax()] = 1 # treat the bbox with highest iou score as the gt
         ref_iou_idx.append(ious.argmax())
 
+        gt_neg_bbox_batch = get_3d_box_batch(gt_neg_boxes[i,:, 3:6], gt_neg_boxes[i,:, 6], gt_neg_boxes[i,:, 0:3])
+        # find the negative sample boxes in prediction
+        for neg_obj in range(gt_neg_boxes.shape[1]):
+            
+            neg_ious = box3d_iou_batch(pred_bbox_batch, np.tile(gt_neg_bbox_batch[neg_obj], (num_proposals, 1, 1)))
+            pred_contr[i,neg_obj] = cluster_preds[i,neg_ious.argmax()]
+            neg_iou_idx[i,neg_obj] = neg_ious.argmax()
+            # label_contr[i,neg_obj] = 0
+            # gt_neg_boxes[i,neg_obj]
+        pred_contr[i,gt_neg_boxes.shape[1]] = cluster_preds[i,ious.argmax()]
+        label_contr[i,gt_neg_boxes.shape[1]] = 1
+        neg_iou_idx[i,gt_neg_boxes.shape[1]] = ious.argmax()
+
+    label_contr = torch.FloatTensor(label_contr).cuda()
+    pred_contr  = torch.FloatTensor(pred_contr).cuda()
+
     cluster_labels = torch.FloatTensor(labels).cuda()
 
     # reference loss
     criterion = SoftmaxRankingLoss()
-    loss = criterion(cluster_preds, cluster_labels.float().clone())
+    loss       = criterion(cluster_preds, cluster_labels.float().clone())
+    loss_contr = criterion(pred_contr,label_contr.float().clone())
 
     # # 1 vs all other objects with same label, across the entire batch 
     # all_gt_center_label             = data_dict['center_label'].cpu().numpy()           # (B,128,3)
@@ -327,8 +351,8 @@ def compute_reference_loss(data_dict, config):
 
 
 
-    return loss, cluster_preds, cluster_labels
-    # return loss, loss_contrastive, cluster_preds, cluster_labels
+    # return loss, cluster_preds, cluster_labels
+    return loss, loss_contr, cluster_preds, cluster_labels
 
 def compute_lang_classification_loss(data_dict):
     criterion = torch.nn.CrossEntropyLoss()
@@ -388,14 +412,14 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     if reference:
         # Reference loss
-        ref_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
+        ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
         # ref_loss = torch.zeros(1)[0].cuda()
         # contr_loss = torch.zeros(1)[0].cuda()
         # cluster_labels = objectness_label.new_zeros(objectness_label.shape).cuda()
         
         data_dict["cluster_labels"] = cluster_labels
         data_dict["ref_loss"] = ref_loss
-        # data_dict["contr_loss"] = contr_loss
+        data_dict["contr_loss"] = contr_loss
     else:
         # # Reference loss
         # ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
@@ -414,7 +438,8 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     # Final loss function
     loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] \
-        + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"]
+        + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"] \
+        + 0.1*data_dict["contr_loss"]
     
     loss *= 10 # amplify
 
