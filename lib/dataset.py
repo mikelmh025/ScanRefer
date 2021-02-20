@@ -42,7 +42,7 @@ class ScannetReferenceDataset(Dataset):
         use_normal=False, 
         use_multiview=False, 
         augment=False,
-        cp_aug=False):
+        cp_aug=0):
 
         self.scanrefer = scanrefer
         self.scanrefer_all_scene = scanrefer_all_scene # all scene_ids in scanrefer

@@ -455,6 +455,7 @@ if __name__ == "__main__":
     parser.add_argument("--detection", action="store_true", help="evaluate the object detection results")
     parser.add_argument("--devices", nargs='+', type=str, default=['0', '1', '2', '3'], help="devices to use")
 
+    parser.add_argument("--cp_aug", type=int, default=0, help="number of negative sample augmentation")
     parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
     args = parser.parse_args()
 
