@@ -102,7 +102,7 @@ class ScannetReferenceDataset(Dataset):
                 selected_neg_obj = random.sample(list_obj,len(list_obj)) if len(list_obj) <= num_obj_add else random.sample(list_obj,num_obj_add)
 
                 for (index, item) in enumerate(selected_neg_obj):
-                    other_point_cloud,other_pcl_color = self.process_pc(item["mesh_vertices"],item["scene_id"])
+                    other_point_cloud,other_pcl_color = self.process_pc(item["mesh_vertices"],item["scene_id"],item["choices"])
                     point_cloud     = np.concatenate((point_cloud,other_point_cloud),axis=0) 
                     pcl_color       = np.concatenate((pcl_color,other_pcl_color),axis=0) 
                     semantic_labels = np.concatenate((semantic_labels,item["semantic_labels"]),axis=0)
@@ -309,7 +309,7 @@ class ScannetReferenceDataset(Dataset):
 
         return data_dict
     
-    def process_pc(self,mesh_vertices,scene_id):
+    def process_pc(self,mesh_vertices,scene_id,multiview_obj=np.zeros((1,1,1,1))):
         if not self.use_color:
             point_cloud = mesh_vertices[:,0:3] # do not use color for now
             pcl_color = mesh_vertices[:,3:6]
@@ -328,8 +328,12 @@ class ScannetReferenceDataset(Dataset):
             if pid not in self.multiview_data:
                 self.multiview_data[pid] = h5py.File(MULTIVIEW_DATA, "r", libver="latest")
  
-            multiview = self.multiview_data[pid][scene_id]
-            point_cloud = np.concatenate([point_cloud, multiview],1)
+            multiview = self.multiview_data[pid][scene_id] 
+            if multiview_obj.shape != (1,1,1,1):
+                temp =  multiview[:,:]
+                point_cloud = np.concatenate([point_cloud, temp[multiview_obj]],1)
+            else:
+                point_cloud = np.concatenate([point_cloud, multiview],1)
 
         if self.use_height:
             floor_height = np.percentile(point_cloud[:,2],0.99)
@@ -534,6 +538,7 @@ class ScannetReferenceDataset(Dataset):
                 obj_data["mesh_vertices"] = selected_mesh_vertices
                 obj_data["instance_labels"] = selected_instance_labels
                 obj_data["semantic_labels"] = selected_semantic_labels
+                obj_data["choices"] = choices
                 # TODO: Make this work, check sematic 
                 # obj_data["instance_bboxes"] = selected_instance_bboxes
                 add_flag = 0

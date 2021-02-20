@@ -94,6 +94,10 @@
                 "--batch_size",
                 "7",
                 "--cp_aug",
+                "5",
+                "--num_workers",
+                "1"
+
             ]
         }
     ]
