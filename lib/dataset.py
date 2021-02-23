@@ -86,6 +86,8 @@ class ScannetReferenceDataset(Dataset):
         num_obj_add =  self.cp_aug
         neg_box = np.zeros((num_obj_add, 6))
         if self.cp_aug!=0 and self.split != 'test':
+        # TODO: change back
+        # if self.cp_aug!=0 :
     
             # NOTE: set size class as semantic class. Consider use size2class.
             size_classes = np.zeros((MAX_NUM_OBJ,))
@@ -103,8 +105,30 @@ class ScannetReferenceDataset(Dataset):
 
                 for (index, item) in enumerate(selected_neg_obj):
                     other_point_cloud,other_pcl_color = self.process_pc(item["mesh_vertices"],item["scene_id"],item["choices"])
+                    # random move the negative sample in the scene
+                    obj_pc_size = other_point_cloud.shape[0]
+                    x_mean = np.mean(other_point_cloud[:,0])
+                    y_mean = np.mean(other_point_cloud[:,1])
+                    z_mean = np.mean(other_point_cloud[:,2])
+                    jit_x = np.random.rand(1)*6-3 - x_mean
+                    jit_y = np.random.rand(1)*6-3 - y_mean
+                    jit_z = np.random.rand(1)*2.2-0.1 - z_mean
+                    jit = np.concatenate((jit_x,jit_y,jit_z),0)
+                    other_point_cloud[:,0:3] += jit
+
+                    jit_scale = random.random()*0.225 + 0.9 # Standard scale jittering
+                    other_point_cloud[:,0:3] *= jit_scale
+
                     point_cloud     = np.concatenate((point_cloud,other_point_cloud),axis=0) 
                     pcl_color       = np.concatenate((pcl_color,other_pcl_color),axis=0) 
+
+                    # # # TODO : change back
+                    # from utils.pc_utils import write_ply_rgb
+                    # import sys
+                    # write_ply_rgb(point_cloud, pcl_color, os.path.join("/home/mikelmh025/Desktop/ScanRefer/outputs/BA_contra_30_test1/vis/scene0011_00", 'scene.ply'))
+                    # write_ply_rgb(other_point_cloud, other_pcl_color, os.path.join("/home/mikelmh025/Desktop/ScanRefer/outputs/BA_contra_30_test1/vis/scene0011_00", str(index)+'obj.ply'))
+                    
+
                     semantic_labels = np.concatenate((semantic_labels,item["semantic_labels"]),axis=0)
                     instance_bboxes = np.concatenate((instance_bboxes,np.atleast_2d(item["instance_bboxes"])),axis=0)
                     neg_box[index,:] = item["instance_bboxes"][0:6]
@@ -113,7 +137,8 @@ class ScannetReferenceDataset(Dataset):
                     obj_instance_labels.fill(np.max(instance_labels) +1)
 
                     instance_labels = np.concatenate((instance_labels,obj_instance_labels),axis=0)
-                    
+                
+                # sys.exit()
         
         # if self.cp_aug and self.split != 'test':
         #     # Choose examples from other scene

@@ -21,8 +21,11 @@
                 "--folder",
                 "outputs/BA_contra_30_test1/",
                 "--scene_id",
-                "scene0011_00",
-                "--use_color"
+                "scene0000_00",
+                "--use_color",
+                "--cp_aug",
+                "5",
+                "--use_train",
             ]
         },
         {

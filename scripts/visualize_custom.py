@@ -48,7 +48,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_color=args.use_color, 
         use_height=(not args.no_height),
         use_normal=args.use_normal, 
-        use_multiview=args.use_multiview
+        use_multiview=args.use_multiview,
+        cp_aug=args.cp_aug
     )
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
@@ -336,14 +337,14 @@ def dump_results(args, scanrefer, data, config):
     # from inputs
     ids = data['scan_idx'].detach().cpu().numpy()
     point_clouds = data['point_clouds'].cpu().numpy()
-    test_point_clouds = data["test_point_clouds"].cpu().numpy() # one object
+    # test_point_clouds = data["test_point_clouds"].cpu().numpy() # one object
     batch_size = point_clouds.shape[0]
 
     pcl_color = data["pcl_color"].detach().cpu().numpy()
-    test_pcl_color = data["test_pcl_color"].detach().cpu().numpy()
+    # test_pcl_color = data["test_pcl_color"].detach().cpu().numpy()
     if args.use_color:
         pcl_color = (pcl_color * 256 + MEAN_COLOR_RGB).astype(np.int64)
-        test_pcl_color = (test_pcl_color * 256 + MEAN_COLOR_RGB).astype(np.int64)
+        # test_pcl_color = (test_pcl_color * 256 + MEAN_COLOR_RGB).astype(np.int64)
     
     
     for i in range(batch_size):
@@ -366,13 +367,13 @@ def dump_results(args, scanrefer, data, config):
         print("pcl_color[i] in pc.ply", pcl_color[i])
         point_clouds = point_clouds[i]  #[:200]
         pcl_color    = pcl_color[i]     #[:200]
-        test_point_clouds = test_point_clouds[i]
-        test_pcl_color = test_pcl_color[i]
+        # test_point_clouds = test_point_clouds[i]
+        # test_pcl_color = test_pcl_color[i]
         jitter_idx = random.random()*0.45 +0.8
 
         write_ply_rgb(point_clouds, pcl_color, os.path.join(scene_dump_dir, 'pc_full.ply'))
-        write_ply_rgb(test_point_clouds, test_pcl_color, os.path.join(scene_dump_dir, 'pc_full_obj.ply'))
-        write_ply_rgb(test_point_clouds*jitter_idx, test_pcl_color, os.path.join(scene_dump_dir, 'pc_full_obj2.ply'))
+        # write_ply_rgb(test_point_clouds, test_pcl_color, os.path.join(scene_dump_dir, 'pc_full_obj.ply'))
+        # write_ply_rgb(test_point_clouds*jitter_idx, test_pcl_color, os.path.join(scene_dump_dir, 'pc_full_obj2.ply'))
 
         # write_ply_rgb(point_clouds[i], pcl_color[i], os.path.join(scene_dump_dir, 'pc.ply'))
         break
@@ -383,7 +384,7 @@ def visualize(args):
     scanrefer, scene_list = get_scanrefer(args)
 
     # dataloader
-    _, dataloader = get_dataloader(args, scanrefer, scene_list, "val", DC, False)
+    _, dataloader = get_dataloader(args, scanrefer, scene_list, "train", DC, False)
 
     # model
     model = get_model(args)
@@ -433,6 +434,8 @@ if __name__ == "__main__":
     parser.add_argument('--use_normal', action='store_true', help='Use RGB color in input.')
     parser.add_argument('--use_multiview', action='store_true', help='Use multiview images.')
     parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
+
+    parser.add_argument("--cp_aug", type=int, default=0, help="number of negative sample augmentation")
     
     args = parser.parse_args()
 
