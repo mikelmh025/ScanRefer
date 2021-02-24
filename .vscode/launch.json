@@ -71,13 +71,13 @@
             "args": [
                 "--use_color",
                 "--debug",
-                "0",
+                "1",
                 "--devices",
                 "0",
                 "--batch_size",
                 "6",
                 "--cp_aug",
-                "10",
+                "0",
                 "--num_workers",
                 "1"
             ]

@@ -196,13 +196,14 @@ def compute_reference_loss(data_dict, config):
     """
 
     # unpack
-    cluster_preds = data_dict["cluster_ref"] # (B, num_proposal)
-    gt_neg_boxes = data_dict["neg_boxes"].detach().cpu().numpy()  #(B, Added, 6) The feature size of each box is 6
-    gt_neg_boxes = np.zeros((gt_neg_boxes.shape[0], gt_neg_boxes.shape[1],gt_neg_boxes.shape[2]+1))
+    cluster_preds         = data_dict["cluster_ref"] # (B, num_proposal)
+    cluster_ref_masked    = data_dict["cluster_ref_masked"] if data_dict["use_mask_aug"]==True else None # (B, num_proposal)
+    gt_neg_boxes          = data_dict["neg_boxes"].detach().cpu().numpy()  #(B, Added, 6) The feature size of each box is 6
+    gt_neg_boxes          = np.zeros((gt_neg_boxes.shape[0], gt_neg_boxes.shape[1],gt_neg_boxes.shape[2]+1))
     gt_neg_boxes[:,:,0:6] = data_dict["neg_boxes"].detach().cpu().numpy() #(B, Added, 7) The feature size of each box is 6+1
 
     # predicted bbox
-    pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,)
+    pred_ref = data_dict['cluster_ref'].detach().cpu().numpy() # (B,num_proposal)
     pred_center = data_dict['center'].detach().cpu().numpy() # (B,K,3)
     pred_heading_class = torch.argmax(data_dict['heading_scores'], -1) # B,num_proposal
     pred_heading_residual = torch.gather(data_dict['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
@@ -262,6 +263,7 @@ def compute_reference_loss(data_dict, config):
     # reference loss
     criterion = SoftmaxRankingLoss()
     loss       = criterion(cluster_preds, cluster_labels.float().clone())
+    loss_mask  = criterion(cluster_ref_masked, cluster_labels.float().clone()) if data_dict["use_mask_aug"]==True else torch.zeros(1)[0].cuda()
     loss_contr = criterion(pred_contr,label_contr.float().clone())
 
     # # 1 vs all other objects with same label, across the entire batch 
@@ -352,7 +354,7 @@ def compute_reference_loss(data_dict, config):
 
 
     # return loss, cluster_preds, cluster_labels
-    return loss, loss_contr, cluster_preds, cluster_labels
+    return loss, loss_mask, loss_contr, cluster_preds, cluster_labels
 
 def compute_lang_classification_loss(data_dict):
     criterion = torch.nn.CrossEntropyLoss()
@@ -412,7 +414,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     if reference:
         # Reference loss
-        ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
+        ref_loss, mask_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
         # ref_loss = torch.zeros(1)[0].cuda()
         # contr_loss = torch.zeros(1)[0].cuda()
         # cluster_labels = objectness_label.new_zeros(objectness_label.shape).cuda()
@@ -420,6 +422,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         data_dict["cluster_labels"] = cluster_labels
         data_dict["ref_loss"] = ref_loss
         data_dict["contr_loss"] = contr_loss
+        data_dict["mask_loss"] = mask_loss
     else:
         # # Reference loss
         # ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
@@ -439,7 +442,8 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
     # Final loss function
     loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] \
         + 0.1*data_dict["ref_loss"] + 0.1*data_dict["lang_loss"] \
-        + 1*data_dict["contr_loss"]
+        + 1*data_dict["contr_loss"] \
+        + 0.1*data_dict["mask_loss"]
     
     loss *= 10 # amplify
 
