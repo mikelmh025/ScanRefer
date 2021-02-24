@@ -14,7 +14,7 @@ from models.match_module import MatchModule
 class RefNet(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
     input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps",
-    use_lang_classifier=True, use_bidir=False, no_reference=False,attn=False,
+    use_lang_classifier=True, use_bidir=False, no_reference=False,attn=False,mask_aug=False,
     emb_size=300, hidden_size=256):
         super().__init__()
 
@@ -31,6 +31,7 @@ class RefNet(nn.Module):
         self.use_bidir = use_bidir      
         self.no_reference = no_reference
         self.attn = attn
+        self.mask_aug=mask_aug
 
         # --------- PROPOSAL GENERATION ---------
         # Backbone point feature learning
@@ -46,11 +47,11 @@ class RefNet(nn.Module):
             # --------- LANGUAGE ENCODING ---------
             # Encode the input descriptions into vectors
             # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn)
+            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
 
             # --------- PROPOSAL MATCHING ---------
             # Match the generated proposals and select the most confident ones
-            self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size)
+            self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size,mask_aug=self.mask_aug)
 
     def forward(self, data_dict):
         """ Forward pass of the network

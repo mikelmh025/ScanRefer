@@ -44,7 +44,8 @@ class ScannetReferenceDataset(Dataset):
         use_normal=False, 
         use_multiview=False, 
         augment=False,
-        cp_aug=0):
+        cp_aug=0,
+        mask_aug=False):
 
         self.scanrefer = scanrefer
         self.scanrefer_all_scene = scanrefer_all_scene # all scene_ids in scanrefer
@@ -56,6 +57,7 @@ class ScannetReferenceDataset(Dataset):
         self.use_multiview = use_multiview
         self.augment = augment
         self.cp_aug = cp_aug
+        self.mask_aug = mask_aug
 
         # load data
         self._load_data()
@@ -73,7 +75,7 @@ class ScannetReferenceDataset(Dataset):
         
         # get language features
         lang_feat = self.lang[scene_id][str(object_id)][ann_id]
-        lang_masked_feat = self.lang_masked[scene_id][str(object_id)][ann_id]
+        if self.mask_aug: lang_masked_feat = self.lang_masked[scene_id][str(object_id)][ann_id]   
         lang_len = len(self.scanrefer[idx]["token"])
         lang_len = lang_len if lang_len <= CONF.TRAIN.MAX_DES_LEN else CONF.TRAIN.MAX_DES_LEN
 
@@ -302,7 +304,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict = {}
         data_dict["point_clouds"] = point_cloud.astype(np.float32) # point cloud data including features
         data_dict["lang_feat"] = lang_feat.astype(np.float32) # language feature vectors
-        data_dict["lang_masked_feat"] = lang_masked_feat.astype(np.float32) # Masked language feature vectors
+        if self.mask_aug: data_dict["lang_masked_feat"] = lang_masked_feat.astype(np.float32)  # Masked language feature vectors
         data_dict["lang_len"] = np.array(lang_len).astype(np.int64) # length of each description
         data_dict["center_label"] = target_bboxes.astype(np.float32)[:,0:3] # (MAX_NUM_OBJ, 3) for GT box center XYZ
         data_dict["heading_class_label"] = angle_classes.astype(np.int64) # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
@@ -653,7 +655,8 @@ class ScannetReferenceDataset(Dataset):
         self.raw2label = self._get_raw2label()
         self.unique_multiple_lookup = self._get_unique_multiple_lookup()
 
-        self.lang_masked, self.token_masked = self._tranform_mask()
+        if self.mask_aug: self.lang_masked, self.token_masked = self._tranform_mask() 
+        
 
 
         # # Loop through each scene

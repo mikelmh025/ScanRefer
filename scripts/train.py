@@ -39,7 +39,8 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_color=args.use_color, 
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview,
-        cp_aug=args.cp_aug
+        cp_aug=args.cp_aug,
+        mask_aug=args.mask_aug
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
@@ -59,7 +60,8 @@ def get_model(args):
         use_lang_classifier=(not args.no_lang_cls),
         use_bidir=args.use_bidir,
         no_reference=args.no_reference,
-        attn=args.self_attn
+        attn=args.self_attn,
+        mask_aug=args.mask_aug,
     )
 
     # trainable model
@@ -272,6 +274,8 @@ if __name__ == "__main__":
     parser.add_argument("--no_augment", action="store_true", help="Do NOT use height signal in input.")
     
     parser.add_argument("--cp_aug", type=int, default=0, help="number of negative sample augmentation")
+    parser.add_argument("--mask_aug", action="store_true", help="Use mask augmentation")
+
     parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
 
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
