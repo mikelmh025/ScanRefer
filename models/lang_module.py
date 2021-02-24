@@ -38,21 +38,30 @@ class LangModule(nn.Module):
         """
 
         word_embs = data_dict["lang_feat"]
+        word_embs_masked = data_dict["lang_masked_feat"] # Masked words
         lang_feat = pack_padded_sequence(word_embs, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
+        lang_feat_masked = pack_padded_sequence(word_embs_masked, data_dict["lang_len"], batch_first=True, enforce_sorted=False)
 
         # encode description
         self.gru.flatten_parameters()
         gru_out, lang_last = self.gru(lang_feat)
         lang_last = lang_last.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
 
+        # encode description masked version
+        gru_out_masked, lang_last_masked = self.gru(lang_feat_masked)
+        lang_last_masked = lang_last_masked.permute(1, 0, 2).contiguous().flatten(start_dim=1) # batch_size, hidden_size * num_dir
+
         # store the encoded language features
         data_dict["lang_emb"] = lang_last # B, hidden_size
+        data_dict["lang_emb_masked"] = lang_last_masked # B, hidden_size
+
         # always use the overall max sequence length
-        if self.attn: data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
+        # if self.attn: data_dict["gru_out_feat"], data_dict["gru_out_len"] = pad_packed_sequence(gru_out, batch_first=True,total_length=word_embs.shape[1])
         
         # classify
         if self.use_lang_classifier:
             data_dict["lang_scores"] = self.lang_cls(data_dict["lang_emb"])
+            data_dict["lang_scores_masked"] = self.lang_cls(data_dict["lang_emb_masked"])
 
         return data_dict
 

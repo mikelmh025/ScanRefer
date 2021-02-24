@@ -20,6 +20,8 @@ from utils.pc_utils import random_sampling, rotx, roty, rotz, choose_label_pc
 from data.scannet.model_util_scannet import rotate_aligned_boxes, ScannetDatasetConfig, rotate_aligned_boxes_along_axis
 import random
 
+from collections import defaultdict 
+
 
 # data setting
 DC = ScannetDatasetConfig()
@@ -71,6 +73,7 @@ class ScannetReferenceDataset(Dataset):
         
         # get language features
         lang_feat = self.lang[scene_id][str(object_id)][ann_id]
+        lang_masked_feat = self.lang_masked[scene_id][str(object_id)][ann_id]
         lang_len = len(self.scanrefer[idx]["token"])
         lang_len = lang_len if lang_len <= CONF.TRAIN.MAX_DES_LEN else CONF.TRAIN.MAX_DES_LEN
 
@@ -299,6 +302,7 @@ class ScannetReferenceDataset(Dataset):
         data_dict = {}
         data_dict["point_clouds"] = point_cloud.astype(np.float32) # point cloud data including features
         data_dict["lang_feat"] = lang_feat.astype(np.float32) # language feature vectors
+        data_dict["lang_masked_feat"] = lang_masked_feat.astype(np.float32) # Masked language feature vectors
         data_dict["lang_len"] = np.array(lang_len).astype(np.int64) # length of each description
         data_dict["center_label"] = target_bboxes.astype(np.float32)[:,0:3] # (MAX_NUM_OBJ, 3) for GT box center XYZ
         data_dict["heading_class_label"] = angle_classes.astype(np.int64) # (MAX_NUM_OBJ,) with int values in 0,...,NUM_HEADING_BIN-1
@@ -446,7 +450,7 @@ class ScannetReferenceDataset(Dataset):
             glove = pickle.load(f)
 
         lang = {}
-        test = {}
+        token_out = {}
         for data in self.scanrefer:
             scene_id = data["scene_id"]
             object_id = data["object_id"]
@@ -454,15 +458,15 @@ class ScannetReferenceDataset(Dataset):
 
             if scene_id not in lang:
                 lang[scene_id] = {}
-                test[scene_id] = {}
+                token_out[scene_id] = {}
 
             if object_id not in lang[scene_id]:
                 lang[scene_id][object_id] = {}
-                test[scene_id][object_id] = {}
+                token_out[scene_id][object_id] = {}
 
             if ann_id not in lang[scene_id][object_id]:
                 lang[scene_id][object_id][ann_id] = {}
-                # test[scene_id][object_id][ann_id] = {}
+                token_out[scene_id][object_id][ann_id] = {}
 
             # tokenize the description
             tokens = data["token"]
@@ -477,6 +481,7 @@ class ScannetReferenceDataset(Dataset):
 
             # store
             lang[scene_id][object_id][ann_id] = embeddings
+            token_out[scene_id][object_id][ann_id] = tokens
             # getting data for Analysis the language instances with other objects from same category in the same scene
             # And second test as well
             # test[scene_id][object_id] = [data['object_id'],data['object_name']]
@@ -517,13 +522,62 @@ class ScannetReferenceDataset(Dataset):
         # plt.pie(values, labels = keys)
         # plt.show()
 
-        return lang
+        return lang,token_out
+
+    def _tranform_mask(self):
+        self.lang_token
+        # self.scene_data[scene_id]["instance2semantic"][obj_id]
+        self.nyuid2raw
+
+        with open(GLOVE_PICKLE, "rb") as f:
+            glove = pickle.load(f)
+
+        lang_masked  = {}
+        token_masked = {}
+
+        for scene in self.lang_token:
+            for obj in self.lang_token[scene]:
+                for annot in self.lang_token[scene][obj]:
+                    # Create local dictionary
+                    if scene not in lang_masked:
+                        lang_masked[scene] = {}
+                        token_masked[scene] = {}
+
+                    if obj not in lang_masked[scene]:
+                        lang_masked[scene][obj] = {}
+                        token_masked[scene][obj] = {}
+
+                    if annot not in lang_masked[scene][obj]:
+                        lang_masked[scene][obj][annot] = {}
+                        token_masked[scene][obj][annot] = {}
+
+
+                    tokens = self.lang_token[scene][obj][annot]
+                    target_obj = self.scene_data[scene]["instance2semantic"][obj]
+                    target_words = self.nyuid2raw[target_obj]
+
+                    tokens_out = tokens.copy()
+                    embeddings = np.zeros((CONF.TRAIN.MAX_DES_LEN, 300))
+                    for token_id in range(CONF.TRAIN.MAX_DES_LEN):
+                        if token_id < len(tokens):
+                            token = tokens[token_id]
+                            if token in target_words:
+                                embeddings[token_id] = glove["unk"]
+                                tokens_out[token_id] = "FFFFFFF"
+                            elif token in glove:
+                                embeddings[token_id] = glove[token]
+                            else:
+                                embeddings[token_id] = glove["unk"]
+                    lang_masked[scene][obj][annot] = embeddings
+                    token_masked[scene][obj][annot] = tokens_out
+
+        return lang_masked,token_masked
 
 
     def _load_data(self):
         print("loading data...")
         # load language features
-        self.lang = self._tranform_des()
+        self.lang, self.lang_token= self._tranform_des()
 
         # add scannet data
         self.scene_list = sorted(list(set([data["scene_id"] for data in self.scanrefer])))
@@ -550,9 +604,12 @@ class ScannetReferenceDataset(Dataset):
             self.scene_data[scene_id]["semantic_labels"] = np.load(os.path.join(CONF.PATH.SCANNET_DATA, scene_id)+"_sem_label.npy")
             # self.scene_data[scene_id]["instance_bboxes"] = np.load(os.path.join(CONF.PATH.SCANNET_DATA, scene_id)+"_bbox.npy")
             self.scene_data[scene_id]["instance_bboxes"] = np.load(os.path.join(CONF.PATH.SCANNET_DATA, scene_id)+"_aligned_bbox.npy")
+            self.scene_data[scene_id]["instance2semantic"] = {}
 
             instance_labels = self.scene_data[scene_id]["instance_labels"]
-            for label in range(np.min(instance_labels), np.max(instance_labels)):
+            unique_instance_labels = np.unique(instance_labels)
+            # for label in range(np.min(instance_labels), np.max(instance_labels)):
+            for label in unique_instance_labels:
                 selected_instance_labels, choices, _ = choose_label_pc(instance_labels,label,200,return_choices=True)
                 selected_semantic_labels = self.scene_data[scene_id]["semantic_labels"][choices]
                 selected_mesh_vertices = self.scene_data[scene_id]["mesh_vertices"][choices]
@@ -564,6 +621,10 @@ class ScannetReferenceDataset(Dataset):
                 obj_data["instance_labels"] = selected_instance_labels
                 obj_data["semantic_labels"] = selected_semantic_labels
                 obj_data["choices"] = choices
+
+                # Use scene_id + instance_label can find the semantic meaning of the object
+                self.scene_data[scene_id]["instance2semantic"][str(np.min(selected_instance_labels))] = np.min(selected_semantic_labels)
+                
                 # TODO: Make this work, check sematic 
                 # obj_data["instance_bboxes"] = selected_instance_bboxes
                 add_flag = 0
@@ -577,6 +638,7 @@ class ScannetReferenceDataset(Dataset):
                 # If has box, Append object to library
                 if add_flag == 1 :
                     if np.max(selected_semantic_labels) != 0:
+                        # obj_data["annotation"] = self.lang_token[scene_id][str(39)]["1"]
                         self.obj_lib[np.max(selected_semantic_labels)].append(obj_data) 
 
         
@@ -585,8 +647,14 @@ class ScannetReferenceDataset(Dataset):
 
         # store
         self.raw2nyuid = raw2nyuid
+        self.nyuid2raw = defaultdict(list) 
+        for t in self.raw2nyuid:
+            self.nyuid2raw[self.raw2nyuid[t]].append(t)  #{self.raw2nyuid[t]:t }
         self.raw2label = self._get_raw2label()
         self.unique_multiple_lookup = self._get_unique_multiple_lookup()
+
+        self.lang_masked, self.token_masked = self._tranform_mask()
+
 
         # # Loop through each scene
         # for scene_id in self.scene_list:
