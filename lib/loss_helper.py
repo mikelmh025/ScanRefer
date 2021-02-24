@@ -185,7 +185,7 @@ def compute_box_and_sem_cls_loss(data_dict, config):
 
     return center_loss, heading_class_loss, heading_residual_normalized_loss, size_class_loss, size_residual_normalized_loss, sem_cls_loss
 
-def compute_reference_loss(data_dict, config):
+def compute_reference_loss(data_dict, config,mask_aug):
     """ Compute cluster reference loss
 
     Args:
@@ -197,7 +197,7 @@ def compute_reference_loss(data_dict, config):
 
     # unpack
     cluster_preds         = data_dict["cluster_ref"] # (B, num_proposal)
-    cluster_ref_masked    = data_dict["cluster_ref_masked"] if data_dict["use_mask_aug"]==True else None # (B, num_proposal)
+    cluster_ref_masked    = data_dict["cluster_ref_masked"] if mask_aug==True else None # (B, num_proposal)
     gt_neg_boxes          = data_dict["neg_boxes"].detach().cpu().numpy()  #(B, Added, 6) The feature size of each box is 6
     gt_neg_boxes          = np.zeros((gt_neg_boxes.shape[0], gt_neg_boxes.shape[1],gt_neg_boxes.shape[2]+1))
     gt_neg_boxes[:,:,0:6] = data_dict["neg_boxes"].detach().cpu().numpy() #(B, Added, 7) The feature size of each box is 6+1
@@ -263,7 +263,7 @@ def compute_reference_loss(data_dict, config):
     # reference loss
     criterion = SoftmaxRankingLoss()
     loss       = criterion(cluster_preds, cluster_labels.float().clone())
-    loss_mask  = criterion(cluster_ref_masked, cluster_labels.float().clone()) if data_dict["use_mask_aug"]==True else torch.zeros(1)[0].cuda()
+    loss_mask  = criterion(cluster_ref_masked, cluster_labels.float().clone()) if mask_aug==True else torch.zeros(1)[0].cuda()
     loss_contr = criterion(pred_contr,label_contr.float().clone())
 
     # # 1 vs all other objects with same label, across the entire batch 
@@ -362,7 +362,7 @@ def compute_lang_classification_loss(data_dict):
 
     return loss
 
-def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False):
+def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False,mask_aug=False):
     """ Loss functions
 
     Args:
@@ -414,7 +414,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
     if reference:
         # Reference loss
-        ref_loss, mask_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
+        ref_loss, mask_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config,mask_aug)
         # ref_loss = torch.zeros(1)[0].cuda()
         # contr_loss = torch.zeros(1)[0].cuda()
         # cluster_labels = objectness_label.new_zeros(objectness_label.shape).cuda()

@@ -156,6 +156,7 @@ def get_solver(args, dataloader):
         val_step=args.val_step,
         detection=not args.no_detection,
         reference=not args.no_reference, 
+        mask_aug= args.mask_aug,
         use_lang_classifier=not args.no_lang_cls,
         lr_decay_step=LR_DECAY_STEP,
         lr_decay_rate=LR_DECAY_RATE,

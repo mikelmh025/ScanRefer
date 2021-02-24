@@ -89,7 +89,7 @@ class MatchModule(nn.Module):
                     
             data_dict["cluster_ref_masked"] = confidences_masked
 
-        data_dict["use_mask_aug"] = self.mask_aug
+        # data_dict["use_mask_aug"] = self.mask_aug
 
         return data_dict
 
