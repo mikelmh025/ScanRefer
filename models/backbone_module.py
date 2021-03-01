@@ -66,8 +66,12 @@ class Pointnet2Backbone(nn.Module):
         self.fp1 = PointnetFPModule(mlp=[256+256,256,256])
         self.fp2 = PointnetFPModule(mlp=[256+256,256,256])
 
-        self.multhead_attn = nn.MultiheadAttention(256,8)
-        self.multhead_attn2 = nn.MultiheadAttention(256,8)
+        # self.multhead_attn = nn.MultiheadAttention(256,8)
+        # self.multhead_attn2 = nn.MultiheadAttention(256,8)
+        if self.attn:
+            attn_channels = 256
+            self.sAttn1 = SA_Layer(attn_channels)
+            self.sAttn2 = SA_Layer(attn_channels)
 
     def _break_up_pc(self, pc):
         xyz = pc[..., :3].contiguous()
@@ -114,14 +118,18 @@ class Pointnet2Backbone(nn.Module):
         data_dict['sa2_features'] = features
 
         xyz, features, fps_inds = self.sa3(xyz, features) # this fps_inds is just 0,1,...,511
+        if self.attn: features = self.sAttn1(features)
         data_dict['sa3_xyz'] = xyz
         data_dict['sa3_features'] = features
 
         xyz, features, fps_inds = self.sa4(xyz, features) # this fps_inds is just 0,1,...,255
+        if self.attn: features = self.sAttn2(features)
         data_dict['sa4_xyz'] = xyz
         data_dict['sa4_features'] = features
 
 
+        
+            
 
 
         # --------- 2 FEATURE UPSAMPLING LAYERS --------
@@ -129,18 +137,18 @@ class Pointnet2Backbone(nn.Module):
         features = self.fp2(data_dict['sa2_xyz'], data_dict['sa3_xyz'], data_dict['sa2_features'], features)
         
         ###### self attention###############
-        if self.attn:
-            features = features.transpose(0,1).transpose(0,2)
-            lan_feature = data_dict["gru_out_feat"].transpose(0,1)
-            leng = features.shape[0]
-            features = torch.cat([features,lan_feature])
+        # if self.attn:
+        #     features = features.transpose(0,1).transpose(0,2)
+        #     lan_feature = data_dict["gru_out_feat"].transpose(0,1)
+        #     leng = features.shape[0]
+        #     features = torch.cat([features,lan_feature])
             
-            self_attn_out, _ = self.multhead_attn(features,features,features)
-            self_attn_out = self_attn_out[:leng]
+        #     self_attn_out, _ = self.multhead_attn(features,features,features)
+        #     self_attn_out = self_attn_out[:leng]
 
-            # self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
+        #     # self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
 
-            features = self_attn_out.transpose(0,2).transpose(0,1)
+        #     features = self_attn_out.transpose(0,2).transpose(0,1)
         ######################
 
         data_dict['fp2_features'] = features
@@ -148,6 +156,41 @@ class Pointnet2Backbone(nn.Module):
         num_seed = data_dict['fp2_xyz'].shape[1]
         data_dict['fp2_inds'] = data_dict['sa1_inds'][:,0:num_seed] # indices among the entire input point clouds
         return data_dict
+
+
+
+class SA_Layer(nn.Module):
+    def __init__(self, channels):
+        super(SA_Layer, self).__init__()
+        self.q_conv = nn.Conv1d(channels, channels // 4, 1, bias=False)
+        self.k_conv = nn.Conv1d(channels, channels // 4, 1, bias=False)
+        self.q_conv.weight = self.k_conv.weight
+        self.q_conv.bias = self.k_conv.bias
+
+        self.v_conv = nn.Conv1d(channels, channels, 1)
+        self.trans_conv = nn.Conv1d(channels, channels, 1)
+        self.after_norm = nn.BatchNorm1d(channels)
+        self.act = nn.ReLU()
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        # b, n, c
+        x_q = self.q_conv(x).permute(0, 2, 1)
+        # b, c, n
+        x_k = self.k_conv(x)
+        x_v = self.v_conv(x)
+        # b, n, n
+        energy = torch.bmm(x_q, x_k)
+
+        attention = self.softmax(energy)
+        attention = attention / (1e-9 + attention.sum(dim=1, keepdim=True))
+        # b, c, n
+        x_r = torch.bmm(x_v, attention)
+        x_r = self.act(self.after_norm(self.trans_conv(x - x_r)))
+        x = x + x_r
+        return x
+
+
 
 if __name__=='__main__':
     backbone_net = Pointnet2Backbone(input_feature_dim=3).cuda()
