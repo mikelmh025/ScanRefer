@@ -21,7 +21,8 @@ from lib.config import CONF
 from models.refnet import RefNet
 
 import torch.multiprocessing as mp
-
+from transformers import AutoModel, AutoTokenizer, BertTokenizer
+from transformers import BertModel
 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
@@ -40,7 +41,9 @@ def get_dataloader(args, scanrefer, all_scene_list, split, config, augment):
         use_normal=args.use_normal, 
         use_multiview=args.use_multiview,
         cp_aug=args.cp_aug,
-        mask_aug=args.mask_aug
+        mask_aug=args.mask_aug,
+        debug=args.debug,
+        bert_emb=args.bert_emb
     )
     # dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
@@ -101,16 +104,27 @@ def get_model(args):
             for param in model.proposal.parameters():
                 param.requires_grad = False
     
+
+    # Load Bert
+    
+
+
     # to CUDA
     is_cuda = torch.cuda.is_available()
     device = torch.device("cuda:0" if is_cuda else "cpu")
     model = model.to(device)
+
+    # if args.use_bert: 
+    #     model_bert = BertModel.from_pretrained('bert-base-cased')
+    #     model_bert = model.to(device)
+
     devices = [int(x) for x in args.devices]
     print("devices",devices, "torch.cuda.device_count()",torch.cuda.device_count())
     model = nn.DataParallel(model, device_ids=devices)
-
-
-
+    
+    # if args.use_bert: 
+    #     model_bert = nn.DataParallel(model_bert, device_ids=devices)
+    #     return model, model_bert
 
     # model = model.cuda()
 
@@ -123,7 +137,11 @@ def get_num_params(model):
     return num_params
 
 def get_solver(args, dataloader):
-    model = get_model(args)
+    # if not args.use_bert: model = get_model(args) 
+    # else: model,model_bert = get_model(args) 
+
+    model = get_model(args) 
+
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.wd)
 
     if args.use_checkpoint:
@@ -161,7 +179,8 @@ def get_solver(args, dataloader):
         lr_decay_step=LR_DECAY_STEP,
         lr_decay_rate=LR_DECAY_RATE,
         bn_decay_step=BN_DECAY_STEP,
-        bn_decay_rate=BN_DECAY_RATE
+        bn_decay_rate=BN_DECAY_RATE,
+        model_bert=None
     )
     num_params = get_num_params(model)
 
@@ -278,6 +297,8 @@ if __name__ == "__main__":
     parser.add_argument("--mask_aug", action="store_true", help="Use mask augmentation")
 
     parser.add_argument("--self_attn", action="store_true", help="Use self attn in pointNet")
+    parser.add_argument("--bert_emb",action="store_true", help="Use pretrained bert for language embedding")
+    
 
     parser.add_argument("--no_lang_cls", action="store_true", help="Do NOT use language classifier.")
     parser.add_argument("--no_detection", action="store_true", help="Do NOT train the detection module.")
@@ -311,6 +332,9 @@ if __name__ == "__main__":
     # os.environ['MASTER_ADDR'] = '10.57.23.164'              #
     # os.environ['MASTER_PORT'] = '8888'                      #
     
+    # TOKENIZERS_PARALLELISM=False
+    os.environ["TOKENIZERS_PARALLELISM"] = "True"
+
 
     # reproducibility
     torch.manual_seed(args.seed)

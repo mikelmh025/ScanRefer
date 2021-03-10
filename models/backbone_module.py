@@ -68,10 +68,10 @@ class Pointnet2Backbone(nn.Module):
 
         # self.multhead_attn = nn.MultiheadAttention(256,8)
         # self.multhead_attn2 = nn.MultiheadAttention(256,8)
-        if self.attn:
-            attn_channels = 256
-            self.sAttn1 = SA_Layer(attn_channels)
-            self.sAttn2 = SA_Layer(attn_channels)
+        # if self.attn:
+        #     attn_channels = 256
+        #     self.sAttn1 = SA_Layer(attn_channels)
+        #     self.sAttn2 = SA_Layer(attn_channels)
 
     def _break_up_pc(self, pc):
         xyz = pc[..., :3].contiguous()
@@ -118,12 +118,12 @@ class Pointnet2Backbone(nn.Module):
         data_dict['sa2_features'] = features
 
         xyz, features, fps_inds = self.sa3(xyz, features) # this fps_inds is just 0,1,...,511
-        if self.attn: features = self.sAttn1(features)
+        # if self.attn: features = self.sAttn1(features)
         data_dict['sa3_xyz'] = xyz
         data_dict['sa3_features'] = features
 
         xyz, features, fps_inds = self.sa4(xyz, features) # this fps_inds is just 0,1,...,255
-        if self.attn: features = self.sAttn2(features)
+        # if self.attn: features = self.sAttn2(features)
         data_dict['sa4_xyz'] = xyz
         data_dict['sa4_features'] = features
 

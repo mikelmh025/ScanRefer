@@ -1,42 +1,45 @@
-import torch
-tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-cased')
+# import torch
+# tokenizer = torch.hub.load('huggingface/pytorch-transformers', 'tokenizer', 'bert-base-cased')
 
-text_1 = "Who was Jim Henson ?"
-text_2 = "Jim Henson was a puppeteer"
+# text_1 = "Who was Jim Henson ?"
+# text_2 = "Jim Henson was a puppeteer"
 
-# Tokenized input with special tokens around it (for BERT: [CLS] at the beginning and [SEP] at the end)
-indexed_tokens = tokenizer.encode(text_1, text_2, add_special_tokens=True)
+# # Tokenized input with special tokens around it (for BERT: [CLS] at the beginning and [SEP] at the end)
+# indexed_tokens = tokenizer.encode(text_1, text_2, add_special_tokens=True)
 
-# Define sentence A and B indices associated to 1st and 2nd sentences (see paper)
-segments_ids = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
+# # Define sentence A and B indices associated to 1st and 2nd sentences (see paper)
+# segments_ids = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1]
 
-# Convert inputs to PyTorch tensors
-segments_tensors = torch.tensor([segments_ids])
-tokens_tensor = torch.tensor([indexed_tokens])
-print(tokens_tensor)
-model = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-cased')
+# # Convert inputs to PyTorch tensors
+# segments_tensors = torch.tensor([segments_ids])
+# tokens_tensor = torch.tensor([indexed_tokens])
+# print(tokens_tensor)
+# model = torch.hub.load('huggingface/pytorch-transformers', 'model', 'bert-base-cased')
 
-with torch.no_grad():
-    encoded_layers, _ = model(tokens_tensor, token_type_ids=segments_tensors)
+# with torch.no_grad():
+#     encoded_layers, a = model(tokens_tensor, token_type_ids=segments_tensors)
+#     print("encoded_layers",encoded_layers)
 
 
-# Mask a token that we will try to predict back with `BertForMaskedLM`
-masked_index = 8
-indexed_tokens[masked_index] = tokenizer.mask_token_id
-tokens_tensor = torch.tensor([indexed_tokens])
+# a = 1
 
-masked_lm_model = torch.hub.load('huggingface/pytorch-transformers', 'modelWithLMHead', 'bert-base-cased')
+# # Mask a token that we will try to predict back with `BertForMaskedLM`
+# masked_index = 8
+# indexed_tokens[masked_index] = tokenizer.mask_token_id
+# tokens_tensor = torch.tensor([indexed_tokens])
 
-with torch.no_grad():
-    print(tokens_tensor)
-    print(segments_tensors)
-    predictions = masked_lm_model(tokens_tensor, token_type_ids=segments_tensors)
+# masked_lm_model = torch.hub.load('huggingface/pytorch-transformers', 'modelWithLMHead', 'bert-base-cased')
 
-# Get the predicted token
-predicted_index = torch.argmax(predictions[0][0], dim=1)[masked_index].item()
-predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])[0]
-assert predicted_token == 'Jim'
-print(predicted_token)
+# with torch.no_grad():
+#     print(tokens_tensor)
+#     print(segments_tensors)
+#     predictions = masked_lm_model(tokens_tensor, token_type_ids=segments_tensors)
+
+# # Get the predicted token
+# predicted_index = torch.argmax(predictions[0][0], dim=1)[masked_index].item()
+# predicted_token = tokenizer.convert_ids_to_tokens([predicted_index])[0]
+# assert predicted_token == 'Jim'
+# print(predicted_token)
 
 
 # question_answering_model = torch.hub.load('huggingface/pytorch-transformers', 'modelForQuestionAnswering', 'bert-large-uncased-whole-word-masking-finetuned-squad')
@@ -70,3 +73,52 @@ print(predicted_token)
 # multiple_choice_loss = question_answering_model(tokens_tensor, token_type_ids=segments_tensors, start_positions=start_positions, end_positions=end_positions)
 
 # a= 1
+
+
+import torch
+from transformers import AutoModel, AutoTokenizer, BertTokenizer
+from transformers import BertModel
+is_cuda = torch.cuda.is_available()
+device = torch.device("cuda:0" if is_cuda else "cpu")
+    
+
+# Let's load a BERT model for TensorFlow and PyTorch
+model_pt = BertModel.from_pretrained('bert-base-cased')
+model_pt = model_pt.to(device)
+
+torch.set_grad_enabled(False)
+
+# Store the model we want to use
+MODEL_NAME = "bert-base-cased"
+
+# We need to create the model and tokenizer
+model = AutoModel.from_pretrained(MODEL_NAME)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+input_pt = tokenizer("This is a sample input", return_tensors="pt").to(device)
+
+output_pt = model_pt(**input_pt)
+print("input", input_pt)
+print(output_pt["last_hidden_state"].shape)
+
+# tokens_pt = tokenizer("This is an input example", return_tensors="pt")
+# for key, value in tokens_pt.items():
+#     print("{}:\n\t{}".format(key, value))
+
+# outputs = model(**tokens_pt)
+# last_hidden_state = outputs.last_hidden_state
+# pooler_output = outputs.pooler_output
+
+# print("Token wise output: {}, Pooled output: {}".format(last_hidden_state.shape, pooler_output.shape))
+
+# # Padding highlight
+# tokens = tokenizer(
+#     ["This is a sample", "This is another longer sample text"], 
+#     padding=True  # First sentence will have some PADDED tokens to match second sequence length
+# )
+
+# for i in range(2):
+#     print("Tokens (int)      : {}".format(tokens['input_ids'][i]))
+#     print("Tokens (str)      : {}".format([tokenizer.convert_ids_to_tokens(s) for s in tokens['input_ids'][i]]))
+#     print("Tokens (attn_mask): {}".format(tokens['attention_mask'][i]))
+#     print()

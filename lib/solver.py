@@ -21,21 +21,34 @@ from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
 
 
+# ITER_REPORT_TEMPLATE = """
+# -------------------------------iter: [{epoch_id}: {iter_id}/{total_iter}]-------------------------------
+# [loss] train_loss: {train_loss}
+# [loss] train_ref_loss: {train_ref_loss}
+# [loss] train_mask_loss: {train_mask_loss}
+# [loss] train_contr_loss: {train_contr_loss}
+# [loss] train_lang_loss: {train_lang_loss}
+# [loss] train_objectness_loss: {train_objectness_loss}
+# [loss] train_vote_loss: {train_vote_loss}
+# [loss] train_box_loss: {train_box_loss}
+# [loss] train_lang_acc: {train_lang_acc}
+# [sco.] train_ref_acc: {train_ref_acc}
+# [sco.] train_obj_acc: {train_obj_acc}
+# [sco.] train_pos_ratio: {train_pos_ratio}, train_neg_ratio: {train_neg_ratio}
+# [sco.] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
+# [info] mean_fetch_time: {mean_fetch_time}s
+# [info] mean_forward_time: {mean_forward_time}s
+# [info] mean_backward_time: {mean_backward_time}s
+# [info] mean_eval_time: {mean_eval_time}s
+# [info] mean_iter_time: {mean_iter_time}s
+# [info] ETA: {eta_h}h {eta_m}m {eta_s}s
+# """
+
 ITER_REPORT_TEMPLATE = """
 -------------------------------iter: [{epoch_id}: {iter_id}/{total_iter}]-------------------------------
 [loss] train_loss: {train_loss}
-[loss] train_ref_loss: {train_ref_loss}
-[loss] train_mask_loss: {train_mask_loss}
-[loss] train_contr_loss: {train_contr_loss}
-[loss] train_lang_loss: {train_lang_loss}
 [loss] train_objectness_loss: {train_objectness_loss}
-[loss] train_vote_loss: {train_vote_loss}
 [loss] train_box_loss: {train_box_loss}
-[loss] train_lang_acc: {train_lang_acc}
-[sco.] train_ref_acc: {train_ref_acc}
-[sco.] train_obj_acc: {train_obj_acc}
-[sco.] train_pos_ratio: {train_pos_ratio}, train_neg_ratio: {train_neg_ratio}
-[sco.] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [info] mean_fetch_time: {mean_fetch_time}s
 [info] mean_forward_time: {mean_forward_time}s
 [info] mean_backward_time: {mean_backward_time}s
@@ -44,56 +57,74 @@ ITER_REPORT_TEMPLATE = """
 [info] ETA: {eta_h}h {eta_m}m {eta_s}s
 """
 
+# EPOCH_REPORT_TEMPLATE = """
+# ---------------------------------summary---------------------------------
+# [train] train_loss: {train_loss}
+# [train] train_ref_loss: {train_ref_loss}
+# [train] train_mask_loss: {train_mask_loss}
+# [train] train_contr_loss: {train_contr_loss}
+# [train] train_lang_loss: {train_lang_loss}
+# [train] train_objectness_loss: {train_objectness_loss}
+# [train] train_vote_loss: {train_vote_loss}
+# [train] train_box_loss: {train_box_loss}
+# [train] train_lang_acc: {train_lang_acc}
+# [train] train_ref_acc: {train_ref_acc}
+# [train] train_obj_acc: {train_obj_acc}
+# [train] train_pos_ratio: {train_pos_ratio}, train_neg_ratio: {train_neg_ratio}
+# [train] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
+# [val]   val_loss: {val_loss}
+# [val]   val_ref_loss: {val_ref_loss}
+# [val]   val_mask_loss: {val_mask_loss}
+# [val]   val_contr_loss: {val_contr_loss}
+# [val]   val_lang_loss: {val_lang_loss}
+# [val]   val_objectness_loss: {val_objectness_loss}
+# [val]   val_vote_loss: {val_vote_loss}
+# [val]   val_box_loss: {val_box_loss}
+# [val]   val_lang_acc: {val_lang_acc}
+# [val]   val_ref_acc: {val_ref_acc}
+# [val]   val_obj_acc: {val_obj_acc}
+# [val]   val_pos_ratio: {val_pos_ratio}, val_neg_ratio: {val_neg_ratio}
+# [val]   val_iou_rate_0.25: {val_iou_rate_25}, val_iou_rate_0.5: {val_iou_rate_5}
+# """
+
+
 EPOCH_REPORT_TEMPLATE = """
 ---------------------------------summary---------------------------------
 [train] train_loss: {train_loss}
-[train] train_ref_loss: {train_ref_loss}
-[train] train_mask_loss: {train_mask_loss}
-[train] train_contr_loss: {train_contr_loss}
-[train] train_lang_loss: {train_lang_loss}
 [train] train_objectness_loss: {train_objectness_loss}
-[train] train_vote_loss: {train_vote_loss}
 [train] train_box_loss: {train_box_loss}
-[train] train_lang_acc: {train_lang_acc}
-[train] train_ref_acc: {train_ref_acc}
-[train] train_obj_acc: {train_obj_acc}
-[train] train_pos_ratio: {train_pos_ratio}, train_neg_ratio: {train_neg_ratio}
-[train] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [val]   val_loss: {val_loss}
-[val]   val_ref_loss: {val_ref_loss}
-[val]   val_mask_loss: {val_mask_loss}
-[val]   val_contr_loss: {val_contr_loss}
-[val]   val_lang_loss: {val_lang_loss}
 [val]   val_objectness_loss: {val_objectness_loss}
-[val]   val_vote_loss: {val_vote_loss}
 [val]   val_box_loss: {val_box_loss}
-[val]   val_lang_acc: {val_lang_acc}
-[val]   val_ref_acc: {val_ref_acc}
-[val]   val_obj_acc: {val_obj_acc}
-[val]   val_pos_ratio: {val_pos_ratio}, val_neg_ratio: {val_neg_ratio}
-[val]   val_iou_rate_0.25: {val_iou_rate_25}, val_iou_rate_0.5: {val_iou_rate_5}
 """
 
+# BEST_REPORT_TEMPLATE = """
+# --------------------------------------best--------------------------------------
+# [best] epoch: {epoch}
+# [loss] loss: {loss}
+# [loss] ref_loss: {ref_loss}
+# [loss] mask_loss: {mask_loss}
+# [loss] contr_loss: {contr_loss}
+# [loss] lang_loss: {lang_loss}
+# [loss] objectness_loss: {objectness_loss}
+# [loss] vote_loss: {vote_loss}
+# [loss] box_loss: {box_loss}
+# [loss] lang_acc: {lang_acc}
+# [sco.] ref_acc: {ref_acc}
+# [sco.] obj_acc: {obj_acc}
+# [sco.] pos_ratio: {pos_ratio}, neg_ratio: {neg_ratio}
+# [sco.] iou_rate_0.25: {iou_rate_25}, iou_rate_0.5: {iou_rate_5}
+# """
 BEST_REPORT_TEMPLATE = """
 --------------------------------------best--------------------------------------
 [best] epoch: {epoch}
 [loss] loss: {loss}
-[loss] ref_loss: {ref_loss}
-[loss] mask_loss: {mask_loss}
-[loss] contr_loss: {contr_loss}
-[loss] lang_loss: {lang_loss}
 [loss] objectness_loss: {objectness_loss}
-[loss] vote_loss: {vote_loss}
 [loss] box_loss: {box_loss}
-[loss] lang_acc: {lang_acc}
-[sco.] ref_acc: {ref_acc}
-[sco.] obj_acc: {obj_acc}
-[sco.] pos_ratio: {pos_ratio}, neg_ratio: {neg_ratio}
-[sco.] iou_rate_0.25: {iou_rate_25}, iou_rate_0.5: {iou_rate_5}
 """
 
 class Solver():
-    def __init__(self, model, config, dataloader, optimizer, stamp, val_step=10, 
+    def __init__(self, model, config, dataloader, optimizer, stamp, model_bert=None, val_step=10, 
     detection=True, reference=True,mask_aug=False, use_lang_classifier=True,
     lr_decay_step=None, lr_decay_rate=None, bn_decay_step=None, bn_decay_rate=None):
 
@@ -286,12 +317,12 @@ class Solver():
         )
 
         # dump
-        self._running_log["ref_loss"] = data_dict["ref_loss"]
-        self._running_log["mask_loss"] = data_dict["mask_loss"]
-        self._running_log["contr_loss"] = data_dict["contr_loss"]
-        self._running_log["lang_loss"] = data_dict["lang_loss"]
+        # self._running_log["ref_loss"] = data_dict["ref_loss"]
+        # self._running_log["mask_loss"] = data_dict["mask_loss"]
+        # self._running_log["contr_loss"] = data_dict["contr_loss"]
+        # self._running_log["lang_loss"] = data_dict["lang_loss"]
         self._running_log["objectness_loss"] = data_dict["objectness_loss"]
-        self._running_log["vote_loss"] = data_dict["vote_loss"]
+        # self._running_log["vote_loss"] = data_dict["vote_loss"]
         self._running_log["box_loss"] = data_dict["box_loss"]
         self._running_log["loss"] = data_dict["loss"]
 
@@ -379,26 +410,26 @@ class Solver():
             
             # eval
             start = time.time()
-            self._eval(data_dict)
+            # self._eval(data_dict)
             self.log[phase]["eval"].append(time.time() - start)
 
             # record log
             self.log[phase]["loss"].append(self._running_log["loss"].item())
-            self.log[phase]["ref_loss"].append(self._running_log["ref_loss"].item())
-            self.log[phase]["mask_loss"].append(self._running_log["mask_loss"].item())
-            self.log[phase]["contr_loss"].append(self._running_log["contr_loss"].item())
-            self.log[phase]["lang_loss"].append(self._running_log["lang_loss"].item())
+            # self.log[phase]["ref_loss"].append(self._running_log["ref_loss"].item())
+            # self.log[phase]["mask_loss"].append(self._running_log["mask_loss"].item())
+            # self.log[phase]["contr_loss"].append(self._running_log["contr_loss"].item())
+            # self.log[phase]["lang_loss"].append(self._running_log["lang_loss"].item())
             self.log[phase]["objectness_loss"].append(self._running_log["objectness_loss"].item())
-            self.log[phase]["vote_loss"].append(self._running_log["vote_loss"].item())
+            # self.log[phase]["vote_loss"].append(self._running_log["vote_loss"].item())
             self.log[phase]["box_loss"].append(self._running_log["box_loss"].item())
 
-            self.log[phase]["lang_acc"].append(self._running_log["lang_acc"])
-            self.log[phase]["ref_acc"].append(self._running_log["ref_acc"])
-            self.log[phase]["obj_acc"].append(self._running_log["obj_acc"])
-            self.log[phase]["pos_ratio"].append(self._running_log["pos_ratio"])
-            self.log[phase]["neg_ratio"].append(self._running_log["neg_ratio"])
-            self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
-            self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])                
+            # self.log[phase]["lang_acc"].append(self._running_log["lang_acc"])
+            # self.log[phase]["ref_acc"].append(self._running_log["ref_acc"])
+            # self.log[phase]["obj_acc"].append(self._running_log["obj_acc"])
+            # self.log[phase]["pos_ratio"].append(self._running_log["pos_ratio"])
+            # self.log[phase]["neg_ratio"].append(self._running_log["neg_ratio"])
+            # self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
+            # self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])                
 
             # report
             if phase == "train":
@@ -455,9 +486,12 @@ class Solver():
                 torch.save(self.model.state_dict(), os.path.join(model_root, "model.pth"))
 
     def _dump_log(self, phase):
+        # log = {
+        #     "loss": ["loss", "ref_loss","mask_loss","contr_loss", "lang_loss", "objectness_loss", "vote_loss", "box_loss"],
+        #     "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
+        # }
         log = {
-            "loss": ["loss", "ref_loss","mask_loss","contr_loss", "lang_loss", "objectness_loss", "vote_loss", "box_loss"],
-            "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
+            "loss": ["loss", "objectness_loss", "box_loss"]
         }
         for key in log:
             for item in log[key]:
@@ -505,25 +539,41 @@ class Solver():
         eta = decode_eta(eta_sec)
 
         # print report
+        # iter_report = self.__iter_report_template.format(
+        #     epoch_id=epoch_id + 1,
+        #     iter_id=self._global_iter_id + 1,
+        #     total_iter=self._total_iter["train"],
+        #     train_loss=round(np.mean([v for v in self.log["train"]["loss"]]), 5),
+        #     train_ref_loss=round(np.mean([v for v in self.log["train"]["ref_loss"]]), 5),
+        #     train_mask_loss=round(np.mean([v for v in self.log["train"]["mask_loss"]]), 5),
+        #     train_contr_loss=round(np.mean([v for v in self.log["train"]["contr_loss"]]), 5),
+        #     train_lang_loss=round(np.mean([v for v in self.log["train"]["lang_loss"]]), 5),
+        #     train_objectness_loss=round(np.mean([v for v in self.log["train"]["objectness_loss"]]), 5),
+        #     train_vote_loss=round(np.mean([v for v in self.log["train"]["vote_loss"]]), 5),
+        #     train_box_loss=round(np.mean([v for v in self.log["train"]["box_loss"]]), 5),
+        #     train_lang_acc=round(np.mean([v for v in self.log["train"]["lang_acc"]]), 5),
+        #     train_ref_acc=round(np.mean([v for v in self.log["train"]["ref_acc"]]), 5),
+        #     train_obj_acc=round(np.mean([v for v in self.log["train"]["obj_acc"]]), 5),
+        #     train_pos_ratio=round(np.mean([v for v in self.log["train"]["pos_ratio"]]), 5),
+        #     train_neg_ratio=round(np.mean([v for v in self.log["train"]["neg_ratio"]]), 5),
+        #     train_iou_rate_25=round(np.mean([v for v in self.log["train"]["iou_rate_0.25"]]), 5),
+        #     train_iou_rate_5=round(np.mean([v for v in self.log["train"]["iou_rate_0.5"]]), 5),
+        #     mean_fetch_time=round(np.mean(fetch_time), 5),
+        #     mean_forward_time=round(np.mean(forward_time), 5),
+        #     mean_backward_time=round(np.mean(backward_time), 5),
+        #     mean_eval_time=round(np.mean(eval_time), 5),
+        #     mean_iter_time=round(np.mean(iter_time), 5),
+        #     eta_h=eta["h"],
+        #     eta_m=eta["m"],
+        #     eta_s=eta["s"]
+        # )
         iter_report = self.__iter_report_template.format(
             epoch_id=epoch_id + 1,
             iter_id=self._global_iter_id + 1,
             total_iter=self._total_iter["train"],
             train_loss=round(np.mean([v for v in self.log["train"]["loss"]]), 5),
-            train_ref_loss=round(np.mean([v for v in self.log["train"]["ref_loss"]]), 5),
-            train_mask_loss=round(np.mean([v for v in self.log["train"]["mask_loss"]]), 5),
-            train_contr_loss=round(np.mean([v for v in self.log["train"]["contr_loss"]]), 5),
-            train_lang_loss=round(np.mean([v for v in self.log["train"]["lang_loss"]]), 5),
             train_objectness_loss=round(np.mean([v for v in self.log["train"]["objectness_loss"]]), 5),
-            train_vote_loss=round(np.mean([v for v in self.log["train"]["vote_loss"]]), 5),
             train_box_loss=round(np.mean([v for v in self.log["train"]["box_loss"]]), 5),
-            train_lang_acc=round(np.mean([v for v in self.log["train"]["lang_acc"]]), 5),
-            train_ref_acc=round(np.mean([v for v in self.log["train"]["ref_acc"]]), 5),
-            train_obj_acc=round(np.mean([v for v in self.log["train"]["obj_acc"]]), 5),
-            train_pos_ratio=round(np.mean([v for v in self.log["train"]["pos_ratio"]]), 5),
-            train_neg_ratio=round(np.mean([v for v in self.log["train"]["neg_ratio"]]), 5),
-            train_iou_rate_25=round(np.mean([v for v in self.log["train"]["iou_rate_0.25"]]), 5),
-            train_iou_rate_5=round(np.mean([v for v in self.log["train"]["iou_rate_0.5"]]), 5),
             mean_fetch_time=round(np.mean(fetch_time), 5),
             mean_forward_time=round(np.mean(forward_time), 5),
             mean_backward_time=round(np.mean(backward_time), 5),

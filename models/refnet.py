@@ -7,10 +7,13 @@ import os
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
+from models.selfAttn_module import SelfAttnModule
 from models.proposal_module import ProposalModule
 from models.lang_module import LangModule
 from models.match_module import MatchModule
-
+from models.transformer_module import TransformerModule
+from transformers import AutoModel, AutoTokenizer, BertTokenizer
+from transformers import BertModel
 class RefNet(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
     input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps",
@@ -40,18 +43,26 @@ class RefNet(nn.Module):
         # Hough voting
         self.vgen = VotingModule(self.vote_factor, 256)
 
+        self.selfAttn = SelfAttnModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+
         # Vote aggregation and object proposal
         self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        if not no_reference:
-            # --------- LANGUAGE ENCODING ---------
-            # Encode the input descriptions into vectors
-            # (including attention and language classification)
-            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
+        # if not no_reference:
+        #     # --------- LANGUAGE ENCODING ---------
+        #     # Encode the input descriptions into vectors
+        #     # (including attention and language classification)
+        #     # self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
 
-            # --------- PROPOSAL MATCHING ---------
-            # Match the generated proposals and select the most confident ones
-            self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size,mask_aug=self.mask_aug)
+        #     # --------- PROPOSAL MATCHING ---------
+        #     # Match the generated proposals and select the most confident ones
+        #     self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size,mask_aug=self.mask_aug)
+
+        # self.model_bert = BertModel.from_pretrained('bert-base-cased')
+        self.Linear_bert_out = nn.Conv1d(768, 512, kernel_size=1, bias=False)
+        self.Linear_bert_out_pool = nn.Conv1d(768, 512, kernel_size=1, bias=False)
+
+        self.TransformerModule = TransformerModule()
 
     def forward(self, data_dict):
         """ Forward pass of the network
@@ -80,7 +91,20 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            data_dict = self.lang(data_dict)
+            #  Bert 
+            bert_in = {}
+            # bert_in['input_ids'] = data_dict["bertTo_input"].squeeze(1)
+            # bert_in["token_type_ids"] = data_dict["bertTo_type"].squeeze(1)
+            # bert_in["attention_mask"] = data_dict["bertTo_mask"].squeeze(1)
+            # with torch.no_grad():
+            #     bert_out = self.model_bert(**bert_in)
+            # data_dict["bert_hidden"] = data_dict["bert_hidden"].squeeze(1)
+            # data_dict["bert_poolar"] = data_dict["bert_poolar"].squeeze(1)
+            # data_dict["bert_out_hidden"] = self.Linear_bert_out(data_dict["bert_hidden"].transpose(1,2))
+            # data_dict["bert_out_pool"] = self.Linear_bert_out_pool(data_dict["bert_poolar"].unsqueeze(2)).squeeze(2)
+
+                
+            # data_dict = self.lang(data_dict)
 
         #######################################
         #                                     #
@@ -97,6 +121,11 @@ class RefNet(nn.Module):
         data_dict["seed_inds"] = data_dict["fp2_inds"]
         data_dict["seed_xyz"] = xyz
         data_dict["seed_features"] = features
+
+        # data_dict = self.selfAttn(data_dict)
+        # data_dict["comebine"] = torch.cat([data_dict["selfAttn_features"],data_dict["bert_out_hidden"]],dim=2)
+
+        # data_dict = self.TransformerModule(data_dict)
         
         xyz, features = self.vgen(xyz, features)
         features_norm = torch.norm(features, p=2, dim=1)
@@ -107,15 +136,15 @@ class RefNet(nn.Module):
         # --------- PROPOSAL GENERATION ---------
         data_dict = self.proposal(xyz, features, data_dict)
 
-        if not self.no_reference:
+        # if not self.no_reference:
 
-            #######################################
-            #                                     #
-            #          PROPOSAL MATCHING          #
-            #                                     #
-            #######################################
+        #     #######################################
+        #     #                                     #
+        #     #          PROPOSAL MATCHING          #
+        #     #                                     #
+        #     #######################################
 
-            # --------- PROPOSAL MATCHING ---------
-            data_dict = self.match(data_dict)
+        #     # --------- PROPOSAL MATCHING ---------
+        #     data_dict = self.match(data_dict)
 
         return data_dict

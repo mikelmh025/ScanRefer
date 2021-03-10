@@ -39,19 +39,20 @@
             "name": "Eval.py debug",
             "type": "python",
             "request": "launch",
-            "program": "scripts/eval.py",
+            "program": "scripts/eval_custum.py",
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/Baseline",
-                "--reference",
+                "outputs/UB_color_cpN10_contr10",
+                "--detection",
                 "--use_color",
                 "--no_nms",
                 "--force",
                 "--repeat",
                 "5",
                 "--devices",
-                "0"
+                "0",
+                
             ]
         },
         {
@@ -86,8 +87,7 @@
                 "--cp_aug",
                 "0",
                 "--num_workers",
-                "1",
-                "--self_attn"
+                "16"
             ]
         },
         {

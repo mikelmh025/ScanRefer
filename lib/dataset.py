@@ -21,8 +21,11 @@ from data.scannet.model_util_scannet import rotate_aligned_boxes, ScannetDataset
 import random
 
 from collections import defaultdict 
+# import torch
+from transformers import AutoModel, AutoTokenizer, BertTokenizer
+from transformers import BertModel
 
-
+import torch
 # data setting
 DC = ScannetDatasetConfig()
 MAX_NUM_OBJ = 128
@@ -45,7 +48,9 @@ class ScannetReferenceDataset(Dataset):
         use_multiview=False, 
         augment=False,
         cp_aug=0,
-        mask_aug=False):
+        mask_aug=False,
+        debug=False,
+        bert_emb=True):
 
         self.scanrefer = scanrefer
         self.scanrefer_all_scene = scanrefer_all_scene # all scene_ids in scanrefer
@@ -60,8 +65,15 @@ class ScannetReferenceDataset(Dataset):
         self.mask_aug = mask_aug
 
         # load data
+        self.debug = debug
+        self.bert_emb = bert_emb
+        
         self._load_data()
         self.multiview_data = {}
+
+        
+
+        
        
     def __len__(self):
         return len(self.scanrefer)
@@ -78,6 +90,12 @@ class ScannetReferenceDataset(Dataset):
         if self.mask_aug: lang_masked_feat = self.lang_masked[scene_id][str(object_id)][ann_id]   
         lang_len = len(self.scanrefer[idx]["token"])
         lang_len = lang_len if lang_len <= CONF.TRAIN.MAX_DES_LEN else CONF.TRAIN.MAX_DES_LEN
+
+        # Bert Token
+        if self.bert_emb:
+            bert_hidden = self.lang_bert_token[scene_id][str(object_id)][ann_id]["last_hidden_state"]
+            bert_poolar = self.lang_bert_token[scene_id][str(object_id)][ann_id]["pooler_output"]
+        
 
         # get pc
         mesh_vertices = self.scene_data[scene_id]["mesh_vertices"]
@@ -304,6 +322,10 @@ class ScannetReferenceDataset(Dataset):
         data_dict = {}
         data_dict["point_clouds"] = point_cloud.astype(np.float32) # point cloud data including features
         data_dict["lang_feat"] = lang_feat.astype(np.float32) # language feature vectors
+        if self.bert_emb:
+            data_dict["bert_hidden"] = bert_hidden
+            data_dict["bert_poolar"] = bert_poolar
+        # lang_bert_token
         if self.mask_aug: data_dict["lang_masked_feat"] = lang_masked_feat.astype(np.float32)  # Masked language feature vectors
         data_dict["lang_len"] = np.array(lang_len).astype(np.int64) # length of each description
         data_dict["center_label"] = target_bboxes.astype(np.float32)[:,0:3] # (MAX_NUM_OBJ, 3) for GT box center XYZ
@@ -575,11 +597,91 @@ class ScannetReferenceDataset(Dataset):
 
         return lang_masked,token_masked
 
+    def _bert_tokenize(self):
+        
+        if self.debug == False:
+            if self.split == "train" :  bert_emb = torch.load("data/bert_train_full.p")
+            else: bert_emb = torch.load("data/bert_val_full.p")
+            print("Ladoing bert embed debug status: ", self.debug)
+        else:
+            if self.split == "train" :  bert_emb = torch.load("data/bert_train_debug.p")
+            else: bert_emb = torch.load("data/bert_val_debug.p")
+            print("Ladoing bert embed debug status: ", self.debug)
+
+        return bert_emb
+
+        # model_pt = BertModel.from_pretrained('bert-base-cased')
+        is_cuda = torch.cuda.is_available()
+        device = torch.device("cuda:0" if is_cuda else "cpu")
+        # model_pt = model_pt.to(device)
+
+        # Store the model we want to use
+        MODEL_NAME = "bert-base-cased"
+
+        # We need to create the model and tokenizer
+        model = AutoModel.from_pretrained(MODEL_NAME)
+        model = model.to(device)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+        # test = torch.load("data/bert_train_full.p")
+        
+        list_sen = {}
+        list_bertToken = {}
+        list_bert_save = {}
+        for scene in self.lang_token:
+            for obj in self.lang_token[scene]:
+                for annot in self.lang_token[scene][obj]:
+                    # Create local dictionary
+                    if scene not in list_sen:
+                        list_sen[scene] = {}
+                        list_bertToken[scene] = {}
+                        list_bert_save[scene] = {}
+
+                    if obj not in list_sen[scene]:
+                        list_sen[scene][obj] = {}
+                        list_bertToken[scene][obj] = {}
+                        list_bert_save[scene][obj] = {}
+
+                    if annot not in list_sen[scene][obj]:
+                        list_sen[scene][obj][annot] = {}
+                        list_bertToken[scene][obj][annot] = {}
+                        list_bert_save[scene][obj][annot] = {}
+        
+                    
+                    sentence = ' '.join(self.lang_token[scene][obj][annot])
+
+                    sentence_bert_token = tokenizer(sentence, return_tensors="pt",padding="max_length",max_length=156)
+
+                    list_sen[scene][obj][annot] = sentence
+                    list_bertToken[scene][obj][annot] = sentence_bert_token
+
+                    
+                    # list_bert_save[scene][obj][annot] = bert_out
+
+                    sentence_bert_token.to('cuda')
+                    with torch.no_grad():
+                        bert_out = model(**sentence_bert_token)
+                        bert_out["last_hidden_state"] = bert_out["last_hidden_state"].cpu().detach()
+                        bert_out["pooler_output"] = bert_out["pooler_output"].cpu().detach()
+
+                        list_bert_save[scene][obj][annot]["last_hidden_state"] = bert_out["last_hidden_state"]
+                        list_bert_save[scene][obj][annot]["pooler_output"] = bert_out["pooler_output"]
+
+        print(self.debug)
+
+        if self.split == "train" : torch.save(list_bert_save, "data/bert_train_debug.p")
+        else: torch.save(list_bert_save, "data/bert_val_debug.p")
+        
+
+        return list_sen, list_bertToken
 
     def _load_data(self):
         print("loading data...")
         # load language features
-        self.lang, self.lang_token= self._tranform_des()
+        self.lang, self.lang_token = self._tranform_des()
+
+        if self.bert_emb:
+            self.lang_bert_token =self._bert_tokenize()
 
         # add scannet data
         self.scene_list = sorted(list(set([data["scene_id"] for data in self.scanrefer])))
