@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/UB_color_cpN10_contr10",
+                "outputs/2021-03-09_20-22-46",
                 "--detection",
                 "--use_color",
                 "--no_nms",

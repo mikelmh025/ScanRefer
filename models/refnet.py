@@ -41,12 +41,12 @@ class RefNet(nn.Module):
         self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim,attn=self.attn)
 
         # Hough voting
-        self.vgen = VotingModule(self.vote_factor, 256)
+        # self.vgen = VotingModule(self.vote_factor, 256)
 
         self.selfAttn = SelfAttnModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
         # Vote aggregation and object proposal
-        self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
         # if not no_reference:
         #     # --------- LANGUAGE ENCODING ---------
@@ -115,26 +115,26 @@ class RefNet(nn.Module):
         # --------- HOUGH VOTING ---------
         data_dict = self.backbone_net(data_dict)
                 
-        # --------- HOUGH VOTING ---------
-        xyz = data_dict["fp2_xyz"]
-        features = data_dict["fp2_features"]
-        data_dict["seed_inds"] = data_dict["fp2_inds"]
-        data_dict["seed_xyz"] = xyz
-        data_dict["seed_features"] = features
+        # # --------- HOUGH VOTING ---------
+        # xyz = data_dict["fp2_xyz"]
+        # features = data_dict["fp2_features"]
+        # data_dict["seed_inds"] = data_dict["fp2_inds"]
+        # data_dict["seed_xyz"] = xyz
+        # data_dict["seed_features"] = features
 
-        # data_dict = self.selfAttn(data_dict)
+        data_dict = self.selfAttn(data_dict)
         # data_dict["comebine"] = torch.cat([data_dict["selfAttn_features"],data_dict["bert_out_hidden"]],dim=2)
 
         # data_dict = self.TransformerModule(data_dict)
         
-        xyz, features = self.vgen(xyz, features)
-        features_norm = torch.norm(features, p=2, dim=1)
-        features = features.div(features_norm.unsqueeze(1))
-        data_dict["vote_xyz"] = xyz
-        data_dict["vote_features"] = features
+        # xyz, features = self.vgen(xyz, features)
+        # features_norm = torch.norm(features, p=2, dim=1)
+        # features = features.div(features_norm.unsqueeze(1))
+        # data_dict["vote_xyz"] = xyz
+        # data_dict["vote_features"] = features
 
         # --------- PROPOSAL GENERATION ---------
-        data_dict = self.proposal(xyz, features, data_dict)
+        # data_dict = self.proposal(xyz, features, data_dict)
 
         # if not self.no_reference:
 

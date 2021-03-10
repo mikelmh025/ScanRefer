@@ -81,7 +81,7 @@ def compute_objectness_loss(data_dict):
             within [0,num_gt_object-1]
     """ 
     # Associate proposal and GT objects by point-to-point distances
-    aggregated_vote_xyz = data_dict['aggregated_vote_xyz']
+    aggregated_vote_xyz = data_dict['sa4_xyz']
     # sa4_xyz
     gt_center = data_dict['center_label'][:,:,0:3]
     B = gt_center.shape[0]

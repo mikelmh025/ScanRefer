@@ -16,7 +16,7 @@ from torch.optim.lr_scheduler import StepLR, MultiStepLR
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
 from lib.loss_helper import get_loss
-from lib.eval_helper import get_eval
+from lib.eval_helper import get_eval,get_eval_cu
 from utils.eta import decode_eta
 from lib.pointnet2.pytorch_utils import BNMomentumScheduler
 
@@ -93,9 +93,11 @@ EPOCH_REPORT_TEMPLATE = """
 [train] train_loss: {train_loss}
 [train] train_objectness_loss: {train_objectness_loss}
 [train] train_box_loss: {train_box_loss}
+[train] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [val]   val_loss: {val_loss}
 [val]   val_objectness_loss: {val_objectness_loss}
 [val]   val_box_loss: {val_box_loss}
+[val]   val_iou_rate_0.25: {val_iou_rate_25}, val_iou_rate_0.5: {val_iou_rate_5}
 """
 
 # BEST_REPORT_TEMPLATE = """
@@ -327,21 +329,19 @@ class Solver():
         self._running_log["loss"] = data_dict["loss"]
 
     def _eval(self, data_dict):
-        data_dict = get_eval(
-            data_dict=data_dict,
-            config=self.config,
-            reference=self.reference,
-            use_lang_classifier=self.use_lang_classifier
+        data_dict = get_eval_cu(
+            data=data_dict,
+            config=self.config
         )
 
         # dump
-        self._running_log["lang_acc"] = data_dict["lang_acc"].item()
-        self._running_log["ref_acc"] = np.mean(data_dict["ref_acc"])
-        self._running_log["obj_acc"] = data_dict["obj_acc"].item()
-        self._running_log["pos_ratio"] = data_dict["pos_ratio"].item()
-        self._running_log["neg_ratio"] = data_dict["neg_ratio"].item()
-        self._running_log["iou_rate_0.25"] = np.mean(data_dict["ref_iou_rate_0.25"])
-        self._running_log["iou_rate_0.5"] = np.mean(data_dict["ref_iou_rate_0.5"])
+        # self._running_log["lang_acc"] = data_dict["lang_acc"].item()
+        # self._running_log["ref_acc"] = np.mean(data_dict["ref_acc"])
+        # self._running_log["obj_acc"] = data_dict["obj_acc"].item()
+        # self._running_log["pos_ratio"] = data_dict["pos_ratio"].item()
+        # self._running_log["neg_ratio"] = data_dict["neg_ratio"].item()
+        self._running_log["iou_rate_0.25"] = data_dict["eval_iou25"]
+        self._running_log["iou_rate_0.5"] = data_dict["eval_iou5"]
 
     def _feed(self, dataloader, phase, epoch_id):
         # switch mode
@@ -410,7 +410,7 @@ class Solver():
             
             # eval
             start = time.time()
-            # self._eval(data_dict)
+            self._eval(data_dict)
             self.log[phase]["eval"].append(time.time() - start)
 
             # record log
@@ -428,8 +428,8 @@ class Solver():
             # self.log[phase]["obj_acc"].append(self._running_log["obj_acc"])
             # self.log[phase]["pos_ratio"].append(self._running_log["pos_ratio"])
             # self.log[phase]["neg_ratio"].append(self._running_log["neg_ratio"])
-            # self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
-            # self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])                
+            self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
+            self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])                
 
             # report
             if phase == "train":
@@ -491,7 +491,8 @@ class Solver():
         #     "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         # }
         log = {
-            "loss": ["loss", "objectness_loss", "box_loss"]
+            "loss": ["loss", "objectness_loss", "box_loss"],
+            "score": ["iou_rate_0.25", "iou_rate_0.5"]
         }
         for key in log:
             for item in log[key]:

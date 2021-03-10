@@ -14,6 +14,7 @@ from utils.nn_distance import nn_distance, huber_loss
 from lib.ap_helper import parse_predictions
 from lib.loss import SoftmaxRankingLoss
 from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou
+import scipy.optimize
 
 def eval_ref_one_sample(pred_bbox, gt_bbox):
     """ Evaluate one reference prediction
@@ -41,6 +42,136 @@ def construct_bbox_corners(center, box_size):
     corners_3d = np.transpose(corners_3d)
 
     return corners_3d
+
+def get_eval_cu(data,config):
+    # predicted box
+    pred_center = data['center'].detach().cpu().numpy()
+    pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
+    pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+    pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+    pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+    pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
+    pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+    pred_size_class = pred_size_class.detach().cpu().numpy()
+    pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+
+    # ground truth bbox
+    gt_center = data['center_label'].cpu().numpy() # (B,128,3)
+    number_box = data["num_bbox"].cpu().numpy() #B
+    gt_heading_class = data['heading_class_label'].cpu().numpy() # B,128
+    gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,128
+    gt_size_class = data['size_class_label'].cpu().numpy() # B,128
+    gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
+
+    iou25_list = []
+    iou5_list = []
+
+    for i in range(pred_center.shape[0]):
+        # convert the bbox parameters to bbox corners
+        pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
+                    pred_size_class[i], pred_size_residual[i])
+        pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+
+
+        gt_obb_batch = config.param2obb_batch(gt_center[i, :number_box[i], 0:3], gt_heading_class[i,:number_box[i]], gt_heading_residual[i,:number_box[i]],
+                        gt_size_class[i,:number_box[i]], gt_size_residual[i,:number_box[i],:])
+        gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
+
+
+        # NUM_GT x NUM_PRED
+        n_true = number_box[i]
+        n_pred = pred_bbox_batch.shape[0]
+        
+
+        iou25, iou5  = match_bboxes(gt_bbox_batch,pred_bbox_batch,n_true,n_pred,IOU_THRESH=0.25)
+        iou25_list.append(iou25)
+        iou5_list.append(iou5)
+
+    #     loss.append(data["loss"])
+    #     loss_obj.append(data["objectness_loss"])
+    #     loss_box.append(data["box_loss"])
+    #     loss_sem.append(data["sem_cls_loss"])
+    # loss = sum(loss)/len(loss)
+    # loss_obj = sum(loss_obj)/len(loss_obj)
+    # loss_sem = sum(loss_sem)/len(loss_sem)
+    # loss_box = sum(loss_box)/len(loss_box)
+    iou25_list = sum(iou25_list)/len(iou25_list)
+    iou5_list = sum(iou5_list)/len(iou5_list)
+    data["eval_iou25"] = iou25
+    data["eval_iou5"] = iou5
+    # data_dict["eval_iou75"] = iou75
+
+    return data
+        
+
+def match_bboxes(bbox_gt, bbox_pred, n_true,n_pred, IOU_THRESH=0.5):
+    '''
+    modified version of https://gist.github.com/AruniRC/c629c2df0e68e23aff7dcaeef87c72d4
+    Given sets of true and predicted bounding-boxes,
+    determine the best possible match.
+
+    Parameters
+    ----------
+    bbox_gt, bbox_pred : N1x4 and N2x4 np array of bboxes [x1,y1,x2,y2]. 
+      The number of bboxes, N1 and N2, need not be the same.
+    
+    Returns
+    -------
+    (idxs_true, idxs_pred, ious, labels)
+        idxs_true, idxs_pred : indices into gt and pred for matches
+        ious : corresponding IOU value of each match
+        labels: vector of 0/1 values for the list of detections
+    '''
+    # n_true = bbox_gt.shape[0]
+    # n_pred = bbox_pred.shape[0]
+    MAX_DIST = 1.0
+    MIN_IOU = 0.0
+
+    # NUM_GT x NUM_PRED
+    iou_matrix = np.zeros((n_true, n_pred))
+    for gt_item in range(n_true):
+        for pre_item in range(n_pred):
+            iou_matrix[gt_item, pre_item] = box3d_iou(bbox_gt[gt_item],bbox_pred[pre_item])
+
+    if n_pred > n_true:
+      # there are more predictions than ground-truth - add dummy rows
+      diff = n_pred - n_true
+      iou_matrix = np.concatenate( (iou_matrix, 
+                                    np.full((diff, n_pred), MIN_IOU)), 
+                                  axis=0)
+
+    if n_true > n_pred:
+      # more ground-truth than predictions - add dummy columns
+      diff = n_true - n_pred
+      iou_matrix = np.concatenate( (iou_matrix, 
+                                    np.full((n_true, diff), MIN_IOU)), 
+                                  axis=1)
+
+    # call the Hungarian matching
+    idxs_true, idxs_pred = scipy.optimize.linear_sum_assignment(1 - iou_matrix)
+
+    if (not idxs_true.size) or (not idxs_pred.size):
+        ious = np.array([])
+    else:
+        ious = iou_matrix[idxs_true, idxs_pred]
+
+    # remove dummy assignments
+    sel_pred = idxs_pred<n_pred
+    idx_pred_actual = idxs_pred[sel_pred] 
+    idx_gt_actual = idxs_true[sel_pred]
+    ious_actual = iou_matrix[idx_gt_actual, idx_pred_actual]
+
+
+    sel_valid = (ious_actual > 0.25)
+    iou25 = ious_actual[sel_valid].shape[0]/n_true
+    sel_valid = (ious_actual > 0.5)
+    iou5 = ious_actual[sel_valid].shape[0]/n_true
+    # sel_valid = (ious_actual > 0.75)
+    # iou75 = ious_actual[sel_valid].shape[0]/n_true
+    return iou25, iou5
+    # label = sel_valid.astype(int)
+    # return idx_gt_actual[sel_valid], idx_pred_actual[sel_valid], ious_actual[sel_valid], label 
+
 
 def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle=False, use_cat_rand=False, use_best=False, post_processing=None):
     """ Loss functions
