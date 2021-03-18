@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import numpy as np
 from scipy.spatial import ConvexHull
+import torch
 
 def polygon_clip(subjectPolygon, clipPolygon):
    """ Clip a polygon with another polygon.
@@ -178,6 +179,53 @@ def box3d_iou_batch(corners1, corners2):
 
     return iou
 
+def generalized_box_iou(boxes1, boxes2):
+    """
+    Generalized IoU from https://giou.stanford.edu/
+    3D version
+
+    The boxes should be in (N,8,3), (M,8,3) format
+
+    Returns a [N, M] pairwise matrix, where N = len(boxes1)
+    and M = len(boxes2)
+    """
+    # Find the min max corners
+    x_min_1, x_max_1, y_min_1, y_max_1, z_min_1, z_max_1 = get_box3d_min_max_batch(boxes1)
+    x_min_2, x_max_2, y_min_2, y_max_2, z_min_2, z_max_2 = get_box3d_min_max_batch(boxes2)
+
+    # Find Volum of each prediction and gt bboxes
+    box_vol_1 = (x_max_1 - x_min_1) * (y_max_1 - y_min_1) * (z_max_1 - z_min_1)
+    box_vol_2 = (x_max_2 - x_min_2) * (y_max_2 - y_min_2) * (z_max_2 - z_min_2)
+
+    # For IOU
+    # Intersection xI1 is xA, yI1 is yA, zI1 is zA
+    xI1 = np.maximum(x_min_1[:,None],x_min_2)
+    yI1 = np.maximum(y_min_1[:,None],y_min_2)
+    zI1 = np.maximum(z_min_1[:,None],z_min_2)
+
+    xI2 = np.minimum(x_max_1[:,None],x_max_2)
+    yI2 = np.minimum(y_max_1[:,None],y_max_2)
+    zI2 = np.minimum(z_max_1[:,None],z_max_2)
+
+    inter_vol = np.maximum((xI2 - xI1), 0) * np.maximum((yI2 - yI1), 0) * np.maximum((zI2 - zI1), 0)
+    union_vol = box_vol_1[:, None] + box_vol_2 - inter_vol
+    iou = inter_vol / (union_vol+1e-8)
+    
+    # For GIoU
+    # Area of A_C
+    xC1 = np.minimum(x_min_1[:,None],x_min_2)
+    yC1 = np.minimum(y_min_1[:,None],y_min_2)
+    zC1 = np.minimum(z_min_1[:,None],z_min_2)
+
+    xC2 = np.maximum(x_max_1[:,None],x_max_2)
+    yC2 = np.maximum(y_max_1[:,None],y_max_2)
+    zC2 = np.maximum(z_max_1[:,None],z_max_2)
+    AC_vol = np.maximum((xI2 - xI1), 0) * np.maximum((yI2 - yI1), 0) * np.maximum((zI2 - zI1), 0)
+
+    giou = iou - (AC_vol - union_vol) / (AC_vol + 1e-8)
+    return giou
+
+    
 def get_box3d_min_max_batch(corner):
     ''' Compute min and max coordinates for 3D bounding box
         Note: only for axis-aligned bounding boxes
@@ -331,3 +379,22 @@ def get_3d_box_batch(box_size, heading_angle, center):
     corners_3d = np.matmul(corners_3d, np.transpose(R, tuple(tlist)))
     corners_3d += np.expand_dims(center, -2)
     return corners_3d
+
+
+@torch.no_grad()
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    if target.numel() == 0:
+        return [torch.zeros([], device=output.device)]
+    maxk = max(topk)
+    batch_size = target.size(0)
+
+    _, pred = output.topk(maxk, 1, True, True)
+    pred = pred.t()
+    correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+    res = []
+    for k in topk:
+        correct_k = correct[:k].view(-1).float().sum(0)
+        res.append(correct_k.mul_(100.0 / batch_size))
+    return res

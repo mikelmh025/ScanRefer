@@ -14,6 +14,10 @@ from models.match_module import MatchModule
 from models.transformer_module import TransformerModule
 from transformers import AutoModel, AutoTokenizer, BertTokenizer
 from transformers import BertModel
+
+from models.matcher import build_matcher
+
+
 class RefNet(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, 
     input_feature_dim=0, num_proposal=128, vote_factor=1, sampling="vote_fps",
@@ -44,6 +48,8 @@ class RefNet(nn.Module):
         # self.vgen = VotingModule(self.vote_factor, 256)
 
         self.selfAttn = SelfAttnModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+
+        self.matcher = build_matcher()
 
         # Vote aggregation and object proposal
         # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
@@ -123,6 +129,11 @@ class RefNet(nn.Module):
         # data_dict["seed_features"] = features
 
         data_dict = self.selfAttn(data_dict)
+
+        data_dict = self.matcher(data_dict)
+        
+
+
         # data_dict["comebine"] = torch.cat([data_dict["selfAttn_features"],data_dict["bert_out_hidden"]],dim=2)
 
         # data_dict = self.TransformerModule(data_dict)
