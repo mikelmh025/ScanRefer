@@ -127,6 +127,14 @@ def compute_box_and_sem_cls_loss(data_dict, config):
         sem_cls_loss
     """
 
+    # From Deter loss
+    src_boxes,target_boxes = get_corner(data_dict,config)
+
+    indices = data_dict["match_indices_list"]
+    idx = _get_src_permutation_idx(indices)
+    src_boxes = src_boxes[idx]
+    #####
+
     num_heading_bin = config.num_heading_bin
     num_size_cluster = config.num_size_cluster
     num_class = config.num_class
@@ -380,13 +388,51 @@ def compute_match_box_loss(data_dict, config):
     target_boxes = torch.Tensor(target_boxes).cuda()
     cost_giou = torch.Tensor(cost_giou).cuda()
 
-    box_loss = F.l1_loss(src_boxes, target_boxes, reduction='none')
-    box_loss = box_loss.sum() / target_boxes.shape[0]
-    box_loss.requires_grad=True
+    # box_loss = F.l1_loss(src_boxes, target_boxes, reduction='none')
+    # box_loss = box_loss.sum() / target_boxes.shape[0]
+    # box_loss.requires_grad=True
 
+    # GIOU loss
     giou_loss = 1 - torch.diag(cost_giou)
     giou_loss = giou_loss.sum() / target_boxes.shape[0]
     giou_loss.requires_grad=True
+
+
+    # Box loss :center loss
+    pred_center = data_dict['center'][idx]
+    gt_center = data_dict['center_label'][:,:,0:3]
+    number_box = data_dict["num_bbox"].cpu().numpy()
+
+    flag_init = 0
+    for i in range(gt_center.shape[0]):
+        if flag_init == 0 : gt_center_list = gt_center[i,:number_box[i],:]
+        if flag_init != 0: gt_center_list = torch.cat((gt_center_list, gt_center[i,:number_box[i],:]),dim=0)
+        flag_init = 1
+    
+    center_loss = F.l1_loss(pred_center,gt_center_list,reduction='none')
+    center_loss = center_loss.sum() / target_boxes.shape[0]
+
+    # Box loss: size loss
+    size_reg_loss = 0
+    num_size_cluster = config.num_size_cluster
+    batch_size = gt_center.shape[0]
+
+    # pred
+    predicted_box_size_list = torch.sum(data_dict['size_residuals_normalized'][idx], 1) # (B,K,3)
+    # Gt
+    gt_box_size = data_dict['size_residual_label']
+    flag_init = 0
+    for i in range(gt_box_size.shape[0]):
+        if flag_init == 0 : gt_box_size_list = gt_box_size[i,:number_box[i],:]
+        if flag_init != 0: gt_box_size_list = torch.cat((gt_box_size_list, gt_box_size[i,:number_box[i],:]),dim=0)
+        flag_init = 1
+    
+    size_reg_loss = huber_loss(predicted_box_size_list - gt_box_size_list, delta=1.0)
+    size_reg_loss = size_reg_loss.sum() / target_boxes.shape[0]
+
+
+    box_loss = center_loss + size_reg_loss
+
 
     return box_loss, giou_loss
 
@@ -479,6 +525,21 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
+    # # Obj loss
+    # objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
+    # num_proposal = objectness_label.shape[1]
+    # total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
+    # data_dict['objectness_label'] = objectness_label
+    # data_dict['objectness_mask'] = objectness_mask
+    # data_dict['object_assignment'] = object_assignment
+    # data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
+    # data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
+
+    # # Box loss and sem cls loss
+    # center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
+    # box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
+
+
     #Loss from deter
     box_loss, giou_loss = compute_match_box_loss(data_dict,config)
     ce_loss , class_loss = computer_match_label_loss(data_dict,config)
@@ -489,7 +550,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
     data_dict['class_loss'] = class_loss
     
     
-    loss = 5*data_dict['box_loss'] + 0*data_dict['giou_loss'] + 1* data_dict['ce_loss'] + data_dict['class_loss'] 
+    loss = 5*data_dict['box_loss'] + 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] + data_dict['class_loss'] 
     
 
     # loss = 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 

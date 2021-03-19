@@ -220,7 +220,7 @@ def generalized_box_iou(boxes1, boxes2):
     xC2 = np.maximum(x_max_1[:,None],x_max_2)
     yC2 = np.maximum(y_max_1[:,None],y_max_2)
     zC2 = np.maximum(z_max_1[:,None],z_max_2)
-    AC_vol = np.maximum((xI2 - xI1), 0) * np.maximum((yI2 - yI1), 0) * np.maximum((zI2 - zI1), 0)
+    AC_vol = np.maximum((xC2 - xC1), 0) * np.maximum((yC2 - yC1), 0) * np.maximum((zC2 - zC1), 0)
 
     giou = iou - (AC_vol - union_vol) / (AC_vol + 1e-8)
     return giou

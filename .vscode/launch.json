@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/2021-03-09_20-22-46",
+                "outputs/2021-03-18_12-48-08",
                 "--detection",
                 "--use_color",
                 "--no_nms",
@@ -79,7 +79,7 @@
             "args": [
                 "--use_color",
                 "--debug",
-                "1",
+                "0",
                 "--devices",
                 "0",
                 "--batch_size",
@@ -87,7 +87,7 @@
                 "--cp_aug",
                 "0",
                 "--num_workers",
-                "1"
+                "16"
             ]
         },
         {
