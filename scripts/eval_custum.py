@@ -493,9 +493,9 @@ def eval_det(args):
     # print("loss_obj: ", loss_obj)
     # print("loss_sem: ", loss_sem)
     print("loss_box: ", loss_box)
-    print("giou_loss: ", giou_loss)
-    print("ce_loss: ", ce_loss)
-    print("class_loss: ", class_loss)
+    print("loss_giou: ", loss_giou)
+    print("loss_ce: ", loss_ce)
+    print("loss_class: ", loss_class)
 
     print("iou25_list: ",iou25_list)
     print("iou5_list: ",iou5_list)
