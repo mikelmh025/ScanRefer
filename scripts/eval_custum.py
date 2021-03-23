@@ -401,6 +401,10 @@ def eval_det(args):
     loss_obj = []
     loss_sem = []
     loss_box = []
+    loss_giou = []
+    loss_ce = []
+    loss_class = []
+
     iou25_list = []
     iou5_list = []
     iou75_list = []
@@ -466,9 +470,9 @@ def eval_det(args):
 
             loss.append(data["loss"])
             loss_box.append(data["box_loss"])
-            loss.append(data["giou_loss"])
-            loss.append(data["ce_loss"])
-            loss.append(data["class_loss"])
+            loss_giou.append(data["giou_loss"])
+            loss_ce.append(data["ce_loss"])
+            loss_class.append(data["class_loss"])
             
             # loss_obj.append(data["objectness_loss"])
             # loss_sem.append(data["sem_cls_loss"])
@@ -477,9 +481,9 @@ def eval_det(args):
     # loss_obj = sum(loss_obj)/len(loss_obj)
     # loss_sem = sum(loss_sem)/len(loss_sem)
     loss_box = sum(loss_box)/len(loss_box)
-    giou_loss = sum(giou_loss)/len(giou_loss)
-    ce_loss = sum(ce_loss)/len(ce_loss)
-    class_loss = sum(class_loss)/len(class_loss)
+    loss_giou = sum(loss_giou)/len(loss_giou)
+    loss_ce = sum(loss_ce)/len(loss_ce)
+    loss_class = sum(loss_class)/len(loss_class)
 
     iou25_list = sum(iou25_list)/len(iou25_list)
     iou5_list = sum(iou5_list)/len(iou5_list)
