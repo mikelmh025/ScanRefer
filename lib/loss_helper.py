@@ -550,7 +550,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
     data_dict['class_loss'] = class_loss
     
     
-    loss = 5*data_dict['box_loss'] + 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] + data_dict['class_loss'] 
+    loss = 5*data_dict['box_loss'] + 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] #+ data_dict['class_loss'] 
     
 
     # loss = 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 
