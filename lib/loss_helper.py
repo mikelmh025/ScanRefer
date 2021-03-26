@@ -17,10 +17,14 @@ from lib.ap_helper import parse_predictions
 from lib.loss import SoftmaxRankingLoss
 from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, box3d_iou_batch,generalized_box_iou,accuracy
 
+from models.matcher import build_matcher
+
 FAR_THRESHOLD = 0.6
 NEAR_THRESHOLD = 0.3
 GT_VOTE_FACTOR = 3 # number of GT votes per point
 OBJECTNESS_CLS_WEIGHTS = [0.2, 0.8] # put larger weights on positive objectness
+
+matcher = build_matcher()
 
 def compute_vote_loss(data_dict):
     """ Compute vote loss: Match predicted votes to GT votes.
@@ -128,11 +132,11 @@ def compute_box_and_sem_cls_loss(data_dict, config):
     """
 
     # From Deter loss
-    src_boxes,target_boxes = get_corner(data_dict,config)
+    # src_boxes,target_boxes = get_corner(data_dict,config)
 
-    indices = data_dict["match_indices_list"]
-    idx = _get_src_permutation_idx(indices)
-    src_boxes = src_boxes[idx]
+    # indices = data_dict["match_indices_list"]
+    # idx = _get_src_permutation_idx(indices)
+    # src_boxes = src_boxes[idx]
     #####
 
     num_heading_bin = config.num_heading_bin
@@ -461,6 +465,9 @@ def computer_match_label_loss(data_dict,config):
     empty_weight = torch.ones(18 + 1).cuda()
     empty_weight[-1] = 0.1
 
+    # class_pred = torch.argmax(pred_logits, dim=2)
+    # l1 = F.l1_loss(class_pred.float(),gt_classes.float())
+
     ce_loss = F.cross_entropy(pred_logits.transpose(1, 2), gt_classes, empty_weight)
 
     class_loss = 100 - accuracy(pred_logits[idx], tgt_ids)[0]
@@ -525,26 +532,27 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    # # Obj loss
-    # objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
-    # num_proposal = objectness_label.shape[1]
-    # total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
-    # data_dict['objectness_label'] = objectness_label
-    # data_dict['objectness_mask'] = objectness_mask
-    # data_dict['object_assignment'] = object_assignment
-    # data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
-    # data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
+    # Obj loss
+    objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
+    num_proposal = objectness_label.shape[1]
+    total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
+    data_dict['objectness_label'] = objectness_label
+    data_dict['objectness_mask'] = objectness_mask
+    data_dict['object_assignment'] = object_assignment
+    data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
+    data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
 
-    # # Box loss and sem cls loss
-    # center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
-    # box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
+    # Box loss and sem cls loss
+    center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
+    box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
 
+    data_dict = matcher(data_dict)
 
     #Loss from deter
-    box_loss, giou_loss = compute_match_box_loss(data_dict,config)
+    match_box_loss, giou_loss = compute_match_box_loss(data_dict,config)
     ce_loss , class_loss = computer_match_label_loss(data_dict,config)
 
-    data_dict['box_loss'] = box_loss
+    data_dict['box_loss'] = box_loss + match_box_loss *0.1
     data_dict['giou_loss'] = giou_loss  # TODO: Change objectness loss name to giou loss
     data_dict['ce_loss'] = ce_loss
     data_dict['class_loss'] = class_loss

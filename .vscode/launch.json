@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/2021-03-18_12-48-08",
+                "outputs/2021-03-23_10-58-42",
                 "--detection",
                 "--use_color",
                 "--no_nms",

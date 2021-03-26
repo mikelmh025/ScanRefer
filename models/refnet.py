@@ -130,7 +130,7 @@ class RefNet(nn.Module):
 
         data_dict = self.selfAttn(data_dict)
 
-        data_dict = self.matcher(data_dict)
+        # data_dict = self.matcher(data_dict)
         
 
 
