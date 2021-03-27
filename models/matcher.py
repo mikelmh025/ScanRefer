@@ -58,7 +58,7 @@ class HungarianMatcher(nn.Module):
             For each batch element, it holds:
                 len(index_i) = len(index_j) = min(num_queries, num_target_boxes)
         """
-        pred_corner,gt_corner = self.get_corner(data_dict) # List of batch box, length is batch size
+        pred_corner,gt_corner,pred_center,gt_center = self.get_corner(data_dict) # List of batch box, length is batch size
 
         pred_logits = data_dict['sem_cls_scores']
         gt_logits = data_dict["sem_cls_label"]
@@ -80,13 +80,22 @@ class HungarianMatcher(nn.Module):
         # The 1 is a constant that doesn't change the matching, it can be ommitted.
         cost_class = -out_prob[:, tgt_ids].cpu()
 
-        flat_out_bbox = out_bbox.reshape(out_bbox.shape[0],-1)
-        flat_out_bbox = torch.Tensor(flat_out_bbox)
-        flat_gt_corner = gt_corner.reshape(gt_corner.shape[0],-1)
-        flat_gt_corner = torch.Tensor(flat_gt_corner)
+        # flat_out_bbox = out_bbox.reshape(out_bbox.shape[0],-1)
+        # flat_out_bbox = torch.Tensor(flat_out_bbox)
+        # flat_gt_corner = gt_corner.reshape(gt_corner.shape[0],-1)
+        # flat_gt_corner = torch.Tensor(flat_gt_corner)
 
-        # Compute the L1 cost between boxes
-        cost_bbox = torch.cdist(flat_out_bbox, flat_gt_corner, p=1).cpu()
+        # # Compute the L1 cost between boxes
+        # cost_bbox = torch.cdist(flat_out_bbox, flat_gt_corner, p=1).cpu()
+
+        # Use center loss to replace the box loss in Deter matcher
+        pred_center = pred_center.reshape(-1,pred_center.shape[-1])
+        pred_center = torch.Tensor(pred_center)
+        gt_center   = torch.Tensor(gt_center)
+        cost_bbox = torch.cdist(pred_center,gt_center, p=1).cpu()
+
+
+
 
         # Compute the giou cost betwen boxes
         cost_giou = -generalized_box_iou(out_bbox,gt_corner)
@@ -99,7 +108,6 @@ class HungarianMatcher(nn.Module):
         sizes = [gt_num_bbox[i] for i in range (gt_num_bbox.shape[0])]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
         data_dict["match_indices_list"] = [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
-
         return data_dict
         
     def get_corner(self,data):
@@ -123,26 +131,31 @@ class HungarianMatcher(nn.Module):
         gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
 
 
-        pred_corner = []
-        gt_corner   = []
+        pred_corner      = []
+        gt_corner        = []
+        pred_center_list = []
+        gt_center_list   = []
+
         for i in range(pred_center.shape[0]):
             pred_obb_batch = self.DC.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
                             pred_size_class[i], pred_size_residual[i])
             pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
             pred_corner.append(pred_bbox_batch)
+            
 
             gt_obb_batch = self.DC.param2obb_batch(gt_center[i, :number_box[i], 0:3], gt_heading_class[i,:number_box[i]], gt_heading_residual[i,:number_box[i]],
                             gt_size_class[i,:number_box[i]], gt_size_residual[i,:number_box[i],:])
             gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
             gt_corner.append(gt_bbox_batch)
-
+            pred_center_list.append(pred_center[i, :, 0:3])
+            gt_center_list.append(gt_center[i, :number_box[i], 0:3])
+        
         pred_corner = np.stack(pred_corner)
-
         gt_corner = np.vstack(gt_corner)
+        pred_center_list = np.stack(pred_center_list)
+        gt_center_list = np.vstack(gt_center_list)
 
-
-
-        return pred_corner,gt_corner
+        return pred_corner,gt_corner,pred_center_list,gt_center_list
 
 def build_matcher():
     # return HungarianMatcher(cost_class=args.set_cost_class, cost_bbox=args.set_cost_bbox, cost_giou=args.set_cost_giou)
