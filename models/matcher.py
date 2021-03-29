@@ -94,7 +94,8 @@ class HungarianMatcher(nn.Module):
         gt_center   = torch.Tensor(gt_center)
         cost_bbox = torch.cdist(pred_center,gt_center, p=1).cpu()
 
-
+        # pred_size = data_dict['size_residuals_normalized']
+        # gt_size   = data_dict['size_residual_label']
 
 
         # Compute the giou cost betwen boxes
@@ -103,12 +104,30 @@ class HungarianMatcher(nn.Module):
         # Final cost matrix
         C = self.cost_bbox * cost_bbox + self.cost_class * cost_class + self.cost_giou * cost_giou
         C = C.view(bs, num_queries, -1).cpu()
+        # C = torch.rand(C.shape)
 
-        sizes = gt_num_bbox
+        # sizes = gt_num_bbox
         sizes = [gt_num_bbox[i] for i in range (gt_num_bbox.shape[0])]
         indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
         data_dict["match_indices_list"] = [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
+        
+        idx = self._get_src_permutation_idx(data_dict["match_indices_list"])
+
+        test_pre = data_dict['center'][idx][0] .cpu()
+        test_gt = data_dict['center_label'][:,:,0:3][0,:gt_num_bbox[0] ].cpu()
+        
+        
+        test = test_gt - test_pre.unsqueeze(0).repeat(gt_num_bbox[0],1)
+        test = torch.abs(test)
+        test = torch.mean(test,-1)
+        argmin = (torch.argmin(test))
         return data_dict
+    
+    def _get_src_permutation_idx(self,indices):
+        # permute predictions following indices
+        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
+        src_idx = torch.cat([src for (src, _) in indices])
+        return batch_idx, src_idx
         
     def get_corner(self,data):
         # predicted box

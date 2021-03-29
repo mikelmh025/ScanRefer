@@ -380,64 +380,66 @@ def compute_lang_classification_loss(data_dict):
 def compute_match_box_loss(data_dict, config):
     # Need: predicionts, targets, indices from mathcer
     # TODO: Assert predict box exisits
-    src_boxes,target_boxes = get_corner(data_dict,config)
 
+    # Get index from matcher
     indices = data_dict["match_indices_list"]
     idx = _get_src_permutation_idx(indices)
-    src_boxes = src_boxes[idx]
 
+    
+    # Prepare data for box loss
+    src_boxes,target_boxes = get_corner(data_dict,config,indices,idx)
+    number_box = data_dict["num_bbox"].cpu().numpy()
+    pred_center = data_dict['center'][idx]    
+
+    # GT data : Center, Size, class label
+    gt_center = data_dict['center_label'][:,:,0:3]
+    gt_box_size = data_dict['size_residual_label']
+    gt_class_label = data_dict['size_class_label']
+
+    #       Use index to select GT data 
+    gt_class_label_list = []
+    gt_box_size_list    = []
+    gt_center_list = []
+    for i in range(gt_center.shape[0]):
+        gt_class_label_list.append(gt_class_label[i,:number_box[i]])
+        gt_box_size_list.append(gt_box_size[i,:number_box[i]])
+        gt_center_list.append(gt_center[i,:number_box[i],:])
+    gt_class_label  = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_class_label_list, indices)], dim=0)
+    gt_box_size     = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_box_size_list, indices)], dim=0)                     # **                  
+    gt_center   = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0)
+
+    # Predictions data: Box Size
+    predicted_box_size = data_dict['size_residuals'][idx]
+    predicted_box_size = torch.gather(predicted_box_size, 1, gt_class_label.unsqueeze(-1).unsqueeze(-1).repeat(1,1,3)).squeeze(1)   # **
+
+
+        
+    ##### Loss Calculation #####
+    # GIOU loss
     cost_giou = -generalized_box_iou(src_boxes,target_boxes)
 
     src_boxes = torch.Tensor(src_boxes).cuda()
     target_boxes = torch.Tensor(target_boxes).cuda()
     cost_giou = torch.Tensor(cost_giou).cuda()
 
-    # box_loss = F.l1_loss(src_boxes, target_boxes, reduction='none')
-    # box_loss = box_loss.sum() / target_boxes.shape[0]
-    # box_loss.requires_grad=True
-
-    # GIOU loss
     giou_loss = 1 - torch.diag(cost_giou)
-    giou_loss = giou_loss.sum() / target_boxes.shape[0]
-    giou_loss.requires_grad=True
+    giou_loss = torch.mean(giou_loss)
+    
 
 
     # Box loss :center loss
-    pred_center = data_dict['center'][idx]
-    gt_center = data_dict['center_label'][:,:,0:3]
-    number_box = data_dict["num_bbox"].cpu().numpy()
-
-    flag_init = 0
-    for i in range(gt_center.shape[0]):
-        if flag_init == 0 : gt_center_list = gt_center[i,:number_box[i],:]
-        if flag_init != 0: gt_center_list = torch.cat((gt_center_list, gt_center[i,:number_box[i],:]),dim=0)
-        flag_init = 1
-    
-    center_loss = F.l1_loss(pred_center,gt_center_list,reduction='none')
+    center_loss = F.mse_loss(pred_center,gt_center,reduction='none')
     center_loss = center_loss.sum() / target_boxes.shape[0]
 
-    # Box loss: size loss
-    size_reg_loss = 0
-    num_size_cluster = config.num_size_cluster
-    batch_size = gt_center.shape[0]
-
-    # pred
-    predicted_box_size_list = torch.sum(data_dict['size_residuals_normalized'][idx], 1) # (B,K,3)
-    # Gt
-    gt_box_size = data_dict['size_residual_label']
-    flag_init = 0
-    for i in range(gt_box_size.shape[0]):
-        if flag_init == 0 : gt_box_size_list = gt_box_size[i,:number_box[i],:]
-        if flag_init != 0: gt_box_size_list = torch.cat((gt_box_size_list, gt_box_size[i,:number_box[i],:]),dim=0)
-        flag_init = 1
-    
-    size_reg_loss = huber_loss(predicted_box_size_list - gt_box_size_list, delta=1.0)
-    size_reg_loss = size_reg_loss.sum() / target_boxes.shape[0]
+    # Box loss: size loss    
+    size_reg_loss = huber_loss(predicted_box_size - gt_box_size, delta=1.0)
+    size_reg_loss = torch.mean(size_reg_loss)
 
 
     box_loss = center_loss + size_reg_loss
 
-
+    box_loss.requires_grad=True
+    giou_loss.requires_grad=True
     return box_loss, giou_loss
 
 def computer_match_label_loss(data_dict,config):
@@ -446,35 +448,40 @@ def computer_match_label_loss(data_dict,config):
     idx = _get_src_permutation_idx(indices)
 
     # Get Ground truth labels
+    pred_logits = data_dict['sem_cls_scores'] # predict labels
     gt_logits = data_dict["sem_cls_label"]
     gt_num_bbox = data_dict["num_bbox"]
-    tgt_ids = []
-    for batch in range(gt_logits.shape[0]):
-        for item in range(gt_num_bbox[batch]):
-            tgt_ids.append(gt_logits[batch][item])
-    tgt_ids = torch.IntTensor(tgt_ids).long().cuda()
-    
-    pred_logits = data_dict['sem_cls_scores'] # predict labels
-    
+
+    #       Use index to select GT data 
+    gt_logits_list = []
+    for i in range(gt_logits.shape[0]):
+        gt_logits_list.append(gt_logits[i,:gt_num_bbox[i]])
+    gt_logits  = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_logits_list, indices)], dim=0)
     # TODO: Now fixed type 18 as no object "None"
     # Fill will all none, except the matched pairs
     gt_classes = torch.full(pred_logits.shape[:2], 18,
                         dtype=torch.int64, device=pred_logits.device)
-    gt_classes[idx] = tgt_ids
+
+    # gt_classes = torch.full(pred_logits.shape[:2], 17,
+    #                     dtype=torch.int64, device=pred_logits.device)   # For past model
+
+    gt_classes[idx] = gt_logits
+
 
     empty_weight = torch.ones(18 + 1).cuda()
+    # empty_weight = torch.ones(18 ).cuda()   # For past model
     empty_weight[-1] = 0.1
-
-    # class_pred = torch.argmax(pred_logits, dim=2)
-    # l1 = F.l1_loss(class_pred.float(),gt_classes.float())
 
     ce_loss = F.cross_entropy(pred_logits.transpose(1, 2), gt_classes, empty_weight)
 
-    class_loss = 100 - accuracy(pred_logits[idx], tgt_ids)[0]
+    class_loss = 100 - accuracy(pred_logits[idx], gt_logits)[0]
+
+    pred_logits_select = data_dict['sem_cls_scores'][idx]
+    ce_select = F.cross_entropy(pred_logits_select,gt_logits)
 
     return ce_loss , class_loss
 
-def get_corner(data,config):
+def get_corner(data,config,indices,idx):
         # predicted box
         pred_center = data['center'].detach().cpu().numpy()
         pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
@@ -494,26 +501,58 @@ def get_corner(data,config):
         gt_size_class = data['size_class_label'].cpu().numpy() # B,128
         gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
 
+        pred_center             = pred_center[idx]
+        pred_heading_class      = pred_heading_class[idx]
+        pred_heading_residual   = pred_heading_residual[idx]
+        pred_size_class         = pred_size_class[idx]
+        pred_size_residual      = pred_size_residual[idx]
 
-        pred_corner = []
-        gt_corner   = []
-        for i in range(pred_center.shape[0]):
-            pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
-                            pred_size_class[i], pred_size_residual[i])
-            pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
-            pred_corner.append(pred_bbox_batch)
+        gt_center_list              = []
+        gt_heading_class_list       = []
+        gt_heading_residual_list    = []
+        gt_size_class_list          = []
+        gt_size_residual_list       = []
+        for i in range(gt_center.shape[0]):
+            gt_center_list                      .append(gt_center[i,:number_box[i],:])
+            gt_heading_class_list               .append(gt_heading_class[i,:number_box[i]])
+            gt_heading_residual_list            .append(gt_heading_residual[i,:number_box[i]])
+            gt_size_class_list                  .append(gt_size_class[i,:number_box[i]])
+            gt_size_residual_list               .append(gt_size_residual[i,:number_box[i],:])
 
-            gt_obb_batch = config.param2obb_batch(gt_center[i, :number_box[i], 0:3], gt_heading_class[i,:number_box[i]], gt_heading_residual[i,:number_box[i]],
-                            gt_size_class[i,:number_box[i]], gt_size_residual[i,:number_box[i],:])
-            gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
-            gt_corner.append(gt_bbox_batch)
+        gt_center           = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0).cpu().numpy()
+        gt_heading_class    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_heading_class_list, indices)], dim=0).cpu().numpy()
+        gt_heading_residual = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_heading_residual_list, indices)], dim=0).cpu().numpy()
+        gt_size_class       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_class_list, indices)], dim=0).cpu().numpy()
+        gt_size_residual    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_residual_list, indices)], dim=0).cpu().numpy()
 
-        pred_corner = np.stack(pred_corner)
+        pred_obb_batch = config.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
+                        pred_size_class, pred_size_residual)
+        pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
 
-        gt_corner = np.vstack(gt_corner)
+
+        gt_obb_batch = config.param2obb_batch(gt_center[:, 0:3], gt_heading_class, gt_heading_residual,
+                        gt_size_class, gt_size_residual)
+        gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
+        
+        # pred_corner = []
+        # gt_corner   = []
+        # for i in range(pred_center.shape[0]):
+        #     pred_obb_batch = config.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
+        #                     pred_size_class[i], pred_size_residual[i])
+        #     pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+        #     pred_corner.append(pred_bbox_batch)
+
+        #     gt_obb_batch = config.param2obb_batch(gt_center[i, :number_box[i], 0:3], gt_heading_class[i,:number_box[i]], gt_heading_residual[i,:number_box[i]],
+        #                     gt_size_class[i,:number_box[i]], gt_size_residual[i,:number_box[i],:])
+        #     gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
+        #     gt_corner.append(gt_bbox_batch)
+
+        # pred_corner = np.stack(pred_corner)
+
+        # gt_corner = np.vstack(gt_corner)
 
 
-        return pred_corner,gt_corner
+        return pred_bbox_batch,gt_bbox_batch
 
 def _get_src_permutation_idx(indices):
         # permute predictions following indices
@@ -532,25 +571,26 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    # # Obj loss
-    # objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
-    # num_proposal = objectness_label.shape[1]
-    # total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
-    # data_dict['objectness_label'] = objectness_label
-    # data_dict['objectness_mask'] = objectness_mask
-    # data_dict['object_assignment'] = object_assignment
-    # data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
-    # data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
+    # Obj loss
+    objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
+    num_proposal = objectness_label.shape[1]
+    total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
+    data_dict['objectness_label'] = objectness_label
+    data_dict['objectness_mask'] = objectness_mask
+    data_dict['object_assignment'] = object_assignment
+    data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
+    data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
 
-    # # Box loss and sem cls loss
-    # center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
-    # box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
+    # Box loss and sem cls loss
+    center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
+    box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
 
     data_dict = matcher(data_dict)
 
     #Loss from deter
     match_box_loss, giou_loss = compute_match_box_loss(data_dict,config)
     ce_loss , class_loss = computer_match_label_loss(data_dict,config)
+    # ce_loss , class_loss = match_box_loss, giou_loss
 
     data_dict['box_loss'] = match_box_loss
     data_dict['giou_loss'] = giou_loss  # TODO: Change objectness loss name to giou loss
@@ -558,7 +598,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
     data_dict['class_loss'] = class_loss
     
     
-    loss = 5*data_dict['box_loss'] + 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] #+ data_dict['class_loss'] 
+    loss = 5*data_dict['box_loss'] #+ 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] #+ data_dict['class_loss'] 
     
 
     # loss = 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 

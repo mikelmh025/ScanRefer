@@ -11,7 +11,7 @@ class SelfAttnModule(nn.Module):
         super().__init__() 
 
         # From Proposal module
-        self.num_class = num_class
+        self.num_class = num_class 
         self.num_heading_bin = num_heading_bin
         self.num_size_cluster = num_size_cluster
         self.mean_size_arr = mean_size_arr
