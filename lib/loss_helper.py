@@ -131,14 +131,6 @@ def compute_box_and_sem_cls_loss(data_dict, config):
         sem_cls_loss
     """
 
-    # From Deter loss
-    # src_boxes,target_boxes = get_corner(data_dict,config)
-
-    # indices = data_dict["match_indices_list"]
-    # idx = _get_src_permutation_idx(indices)
-    # src_boxes = src_boxes[idx]
-    #####
-
     num_heading_bin = config.num_heading_bin
     num_size_cluster = config.num_size_cluster
     num_class = config.num_class
@@ -384,10 +376,9 @@ def compute_match_box_loss(data_dict, config):
     # Get index from matcher
     indices = data_dict["match_indices_list"]
     idx = _get_src_permutation_idx(indices)
-
     
     # Prepare data for box loss
-    src_boxes,target_boxes = get_corner(data_dict,config,indices,idx)
+    pred_boxes,gt_boxes = get_corner(data_dict,config,indices,idx)  # Selected pairs
     number_box = data_dict["num_bbox"].cpu().numpy()
     pred_center = data_dict['center'][idx]    
 
@@ -396,49 +387,40 @@ def compute_match_box_loss(data_dict, config):
     gt_box_size = data_dict['size_residual_label']
     gt_class_label = data_dict['size_class_label']
 
-    #       Use index to select GT data 
+    # GT data : Use index to select GT data 
     gt_class_label_list = []
     gt_box_size_list    = []
-    gt_center_list = []
+    gt_center_list      = []
     for i in range(gt_center.shape[0]):
         gt_class_label_list.append(gt_class_label[i,:number_box[i]])
         gt_box_size_list.append(gt_box_size[i,:number_box[i]])
         gt_center_list.append(gt_center[i,:number_box[i],:])
     gt_class_label  = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_class_label_list, indices)], dim=0)
     gt_box_size     = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_box_size_list, indices)], dim=0)                     # **                  
-    gt_center   = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0)
+    gt_center       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0)
 
     # Predictions data: Box Size
     predicted_box_size = data_dict['size_residuals'][idx]
     predicted_box_size = torch.gather(predicted_box_size, 1, gt_class_label.unsqueeze(-1).unsqueeze(-1).repeat(1,1,3)).squeeze(1)   # **
 
-
         
     ##### Loss Calculation #####
     # GIOU loss
-    cost_giou = -generalized_box_iou(src_boxes,target_boxes)
-
-    src_boxes = torch.Tensor(src_boxes).cuda()
-    target_boxes = torch.Tensor(target_boxes).cuda()
+    cost_giou = generalized_box_iou(pred_boxes,gt_boxes)
     cost_giou = torch.Tensor(cost_giou).cuda()
-
     giou_loss = 1 - torch.diag(cost_giou)
     giou_loss = torch.mean(giou_loss)
-    
-
 
     # Box loss :center loss
     center_loss = F.mse_loss(pred_center,gt_center,reduction='none')
-    center_loss = center_loss.sum() / target_boxes.shape[0]
-
+    center_loss = torch.mean(center_loss)
     # Box loss: size loss    
     size_reg_loss = huber_loss(predicted_box_size - gt_box_size, delta=1.0)
     size_reg_loss = torch.mean(size_reg_loss)
 
-
     box_loss = center_loss + size_reg_loss
 
-    box_loss.requires_grad=True
+    # box_loss.requires_grad=True
     giou_loss.requires_grad=True
     return box_loss, giou_loss
 
@@ -452,11 +434,12 @@ def computer_match_label_loss(data_dict,config):
     gt_logits = data_dict["sem_cls_label"]
     gt_num_bbox = data_dict["num_bbox"]
 
-    #       Use index to select GT data 
+    # Get GT labels: Use index to select GT data 
     gt_logits_list = []
     for i in range(gt_logits.shape[0]):
         gt_logits_list.append(gt_logits[i,:gt_num_bbox[i]])
     gt_logits  = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_logits_list, indices)], dim=0)
+
     # TODO: Now fixed type 18 as no object "None"
     # Fill will all none, except the matched pairs
     gt_classes = torch.full(pred_logits.shape[:2], 18,
@@ -474,12 +457,15 @@ def computer_match_label_loss(data_dict,config):
 
     ce_loss = F.cross_entropy(pred_logits.transpose(1, 2), gt_classes, empty_weight)
 
-    class_loss = 100 - accuracy(pred_logits[idx], gt_logits)[0]
+    class_error = 100 - accuracy(pred_logits[idx], gt_logits)[0]
 
-    pred_logits_select = data_dict['sem_cls_scores'][idx]
-    ce_select = F.cross_entropy(pred_logits_select,gt_logits)
+    # pred_logits_select = data_dict['sem_cls_scores'][idx]
+    # ce_select = F.cross_entropy(pred_logits_select,gt_logits)
+    # pred_logits_rand = pred_logits.detach().clone()
+    # pred_logits_rand = torch.rand(pred_logits_rand.shape[:3]).cuda()
+    # ce_loss_rand = F.cross_entropy(pred_logits_rand.transpose(1, 2), gt_classes, empty_weight)
 
-    return ce_loss , class_loss
+    return ce_loss , class_error
 
 def get_corner(data,config,indices,idx):
         # predicted box
@@ -571,34 +557,34 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    # Obj loss
-    objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
-    num_proposal = objectness_label.shape[1]
-    total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
-    data_dict['objectness_label'] = objectness_label
-    data_dict['objectness_mask'] = objectness_mask
-    data_dict['object_assignment'] = object_assignment
-    data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
-    data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
+    # # Obj loss
+    # objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
+    # num_proposal = objectness_label.shape[1]
+    # total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
+    # data_dict['objectness_label'] = objectness_label
+    # data_dict['objectness_mask'] = objectness_mask
+    # data_dict['object_assignment'] = object_assignment
+    # data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
+    # data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
 
-    # Box loss and sem cls loss
-    center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
-    box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
+    # # Box loss and sem cls loss
+    # center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
+    # box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
 
     data_dict = matcher(data_dict)
 
     #Loss from deter
     match_box_loss, giou_loss = compute_match_box_loss(data_dict,config)
-    ce_loss , class_loss = computer_match_label_loss(data_dict,config)
-    # ce_loss , class_loss = match_box_loss, giou_loss
+    ce_loss , class_error = computer_match_label_loss(data_dict,config)
+    # ce_loss , class_error = match_box_loss, giou_loss
 
     data_dict['box_loss'] = match_box_loss
     data_dict['giou_loss'] = giou_loss  # TODO: Change objectness loss name to giou loss
     data_dict['ce_loss'] = ce_loss
-    data_dict['class_loss'] = class_loss
+    data_dict['class_error'] = class_error  # No grad
     
     
-    loss = 5*data_dict['box_loss'] #+ 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] #+ data_dict['class_loss'] 
+    loss = 5*data_dict['box_loss'] + 2*data_dict['giou_loss'] + 1* data_dict['ce_loss'] 
     
 
     # loss = 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 

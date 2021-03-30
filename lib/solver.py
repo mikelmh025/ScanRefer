@@ -50,7 +50,7 @@ ITER_REPORT_TEMPLATE = """
 [loss] train_box_loss: {train_box_loss}
 [loss] train_giou_loss: {train_giou_loss}
 [loss] train_ce_loss: {train_ce_loss}
-[loss] train_class_loss: {train_class_loss}
+[loss] train_class_error: {train_class_error}
 [info] mean_fetch_time: {mean_fetch_time}s
 [info] mean_forward_time: {mean_forward_time}s
 [info] mean_backward_time: {mean_backward_time}s
@@ -96,13 +96,13 @@ EPOCH_REPORT_TEMPLATE = """
 [train] train_box_loss: {train_box_loss}
 [loss] train_giou_loss: {train_giou_loss}
 [loss] train_ce_loss: {train_ce_loss}
-[loss] train_class_loss: {train_class_loss}
+[loss] train_class_error: {train_class_error}
 [train] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [val]   val_loss: {val_loss}
 [val]   val_box_loss: {val_box_loss}
 [val] val_giou_loss: {val_giou_loss}
 [val] val_ce_loss: {val_ce_loss}
-[val] val_class_loss: {val_class_loss}
+[val] val_class_error: {val_class_error}
 [val]   val_iou_rate_0.25: {val_iou_rate_25}, val_iou_rate_0.5: {val_iou_rate_5}
 """
 
@@ -130,7 +130,7 @@ BEST_REPORT_TEMPLATE = """
 [loss] box_loss: {box_loss}
 [loss] giou_loss: {giou_loss}
 [loss] ce_loss: {ce_loss}
-[loss] class_loss: {class_loss}
+[loss] class_error: {class_error}
 """
 
 class Solver():
@@ -289,7 +289,7 @@ class Solver():
             "box_loss": [],
             "giou_loss":[],
             "ce_loss":[],
-            "class_loss":[],
+            "class_error":[],
             # scores (float, not torch.cuda.FloatTensor)
             "lang_acc": [],
             "ref_acc": [],
@@ -339,7 +339,7 @@ class Solver():
         self._running_log["box_loss"] = data_dict["box_loss"]
         self._running_log["giou_loss"] = data_dict["giou_loss"]
         self._running_log["ce_loss"] = data_dict["ce_loss"]
-        self._running_log["class_loss"] = data_dict["class_loss"]
+        self._running_log["class_error"] = data_dict["class_error"]
         
         self._running_log["loss"] = data_dict["loss"]
 
@@ -400,7 +400,7 @@ class Solver():
                 "box_loss": 0,
                 "giou_loss": 0,
                 "ce_loss": 0,
-                "class_loss": 0,
+                "class_error": 0,
                 # acc
                 "lang_acc": 0,
                 "ref_acc": 0,
@@ -443,7 +443,7 @@ class Solver():
             self.log[phase]["box_loss"].append(self._running_log["box_loss"].item())
             self.log[phase]["giou_loss"].append(self._running_log["giou_loss"].item())
             self.log[phase]["ce_loss"].append(self._running_log["ce_loss"].item())
-            self.log[phase]["class_loss"].append(self._running_log["class_loss"].item())
+            self.log[phase]["class_error"].append(self._running_log["class_error"].item())
             # self.log[phase]["lang_acc"].append(self._running_log["lang_acc"])
             # self.log[phase]["ref_acc"].append(self._running_log["ref_acc"])
             # self.log[phase]["obj_acc"].append(self._running_log["obj_acc"])
@@ -495,7 +495,7 @@ class Solver():
                 self.best["box_loss"] = np.mean(self.log[phase]["box_loss"])
                 self.best["giou_loss"] = np.mean(self.log[phase]["giou_loss"])
                 self.best["ce_loss"] = np.mean(self.log[phase]["ce_loss"])
-                self.best["class_loss"] = np.mean(self.log[phase]["class_loss"])
+                self.best["class_error"] = np.mean(self.log[phase]["class_error"])
                 self.best["lang_acc"] = np.mean(self.log[phase]["lang_acc"])
                 self.best["ref_acc"] = np.mean(self.log[phase]["ref_acc"])
                 self.best["obj_acc"] = np.mean(self.log[phase]["obj_acc"])
@@ -515,7 +515,7 @@ class Solver():
         #     "score": ["lang_acc", "ref_acc", "obj_acc", "pos_ratio", "neg_ratio", "iou_rate_0.25", "iou_rate_0.5"]
         # }
         log = {
-            "loss": ["loss", "box_loss","giou_loss","ce_loss","class_loss"],
+            "loss": ["loss", "box_loss","giou_loss","ce_loss","class_error"],
             "score": ["iou_rate_0.25", "iou_rate_0.5"]
         }
         for key in log:
@@ -600,7 +600,7 @@ class Solver():
             train_box_loss=round(np.mean([v for v in self.log["train"]["box_loss"]]), 5),
             train_giou_loss=round(np.mean([v for v in self.log["train"]["giou_loss"]]), 5),
             train_ce_loss=round(np.mean([v for v in self.log["train"]["ce_loss"]]), 5),
-            train_class_loss=round(np.mean([v for v in self.log["train"]["class_loss"]]), 5),
+            train_class_error=round(np.mean([v for v in self.log["train"]["class_error"]]), 5),
             mean_fetch_time=round(np.mean(fetch_time), 5),
             mean_forward_time=round(np.mean(forward_time), 5),
             mean_backward_time=round(np.mean(backward_time), 5),
@@ -625,7 +625,7 @@ class Solver():
             train_box_loss=round(np.mean([v for v in self.log["train"]["box_loss"]]), 5),
             train_giou_loss=round(np.mean([v for v in self.log["train"]["giou_loss"]]), 5),
             train_ce_loss=round(np.mean([v for v in self.log["train"]["ce_loss"]]), 5),
-            train_class_loss=round(np.mean([v for v in self.log["train"]["class_loss"]]), 5),
+            train_class_error=round(np.mean([v for v in self.log["train"]["class_error"]]), 5),
             train_lang_acc=round(np.mean([v for v in self.log["train"]["lang_acc"]]), 5),
             train_ref_acc=round(np.mean([v for v in self.log["train"]["ref_acc"]]), 5),
             train_obj_acc=round(np.mean([v for v in self.log["train"]["obj_acc"]]), 5),
@@ -643,7 +643,7 @@ class Solver():
             val_box_loss=round(np.mean([v for v in self.log["val"]["box_loss"]]), 5),
             val_giou_loss=round(np.mean([v for v in self.log["val"]["giou_loss"]]), 5),
             val_ce_loss=round(np.mean([v for v in self.log["val"]["ce_loss"]]), 5),
-            val_class_loss=round(np.mean([v for v in self.log["val"]["class_loss"]]), 5),
+            val_class_error=round(np.mean([v for v in self.log["val"]["class_error"]]), 5),
             val_lang_acc=round(np.mean([v for v in self.log["val"]["lang_acc"]]), 5),
             val_ref_acc=round(np.mean([v for v in self.log["val"]["ref_acc"]]), 5),
             val_obj_acc=round(np.mean([v for v in self.log["val"]["obj_acc"]]), 5),
@@ -668,7 +668,7 @@ class Solver():
             box_loss=round(self.best["box_loss"], 5),
             giou_loss=round(self.best["giou_loss"], 5),
             ce_loss=round(self.best["ce_loss"], 5),
-            class_loss=round(self.best["class_loss"], 5),
+            class_error=round(self.best["class_error"], 5),
             lang_acc=round(self.best["lang_acc"], 5),
             ref_acc=round(self.best["ref_acc"], 5),
             obj_acc=round(self.best["obj_acc"], 5),
