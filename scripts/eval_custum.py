@@ -491,7 +491,7 @@ def eval_matcher(args):
             loss_box.append(data["box_loss"])
             loss_giou.append(data["giou_loss"])
             loss_ce.append(data["ce_loss"])
-            loss_class.append(data["class_loss"])
+            loss_class.append(data["class_error"])
             
 
     loss = sum(loss)/len(loss)
@@ -627,7 +627,7 @@ def eval_det(args):
             loss_box.append(data["box_loss"])
             loss_giou.append(data["giou_loss"])
             loss_ce.append(data["ce_loss"])
-            loss_class.append(data["class_loss"])
+            loss_class.append(data["class_error"])
             
             # loss_obj.append(data["objectness_loss"])
             # loss_sem.append(data["sem_cls_loss"])
