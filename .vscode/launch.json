@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/2021-03-30_21-31-35",
+                "outputs/2021-03-30_22-49-41",
                 "--detection",
                 "--matchdet",
                 "--use_color",

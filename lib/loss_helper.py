@@ -458,6 +458,8 @@ def computer_match_label_loss(data_dict,config):
     ce_loss = F.cross_entropy(pred_logits.transpose(1, 2), gt_classes, empty_weight)
 
     class_error = 100 - accuracy(pred_logits[idx], gt_logits)[0]
+    test_pred = pred_logits[idx]
+    test_gt   = gt_logits
 
     # pred_logits_select = data_dict['sem_cls_scores'][idx]
     # ce_select = F.cross_entropy(pred_logits_select,gt_logits)
