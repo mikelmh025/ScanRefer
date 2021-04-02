@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/2021-03-30_22-49-41",
+                "outputs/PCT_Detr_Full_100proposal",
                 "--detection",
                 "--matchdet",
                 "--use_color",

@@ -458,8 +458,20 @@ def computer_match_label_loss(data_dict,config):
     ce_loss = F.cross_entropy(pred_logits.transpose(1, 2), gt_classes, empty_weight)
 
     class_error = 100 - accuracy(pred_logits[idx], gt_logits)[0]
+    
     test_pred = pred_logits[idx]
     test_gt   = gt_logits
+
+    # numer_preded_all     = (pred_logits.argmax(-1) != pred_logits.shape[-1] -1 )
+    # numer_preded_matched = (pred_logits[idx].argmax(-1) != pred_logits.shape[-1] -1 )
+
+    numer_preded_all     = (pred_logits.argmax(-1) != pred_logits.shape[-1] -1 ).sum(1)
+    numer_preded_matched = (pred_logits[idx].argmax(-1) != pred_logits.shape[-1] -1 ).sum(0)
+
+    card_err_all     = F.l1_loss(numer_preded_all.float(),gt_num_bbox.float())
+    card_err_matched = F.l1_loss(numer_preded_matched.float(),gt_num_bbox.float())
+
+    # _, test_all_pred = pred_logits.topk(1, 2, True, True)
 
     # pred_logits_select = data_dict['sem_cls_scores'][idx]
     # ce_select = F.cross_entropy(pred_logits_select,gt_logits)
