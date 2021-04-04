@@ -87,7 +87,7 @@ def compute_objectness_loss(data_dict):
             within [0,num_gt_object-1]
     """ 
     # Associate proposal and GT objects by point-to-point distances
-    aggregated_vote_xyz = data_dict['sa4_xyz']
+    aggregated_vote_xyz = data_dict['aggregated_vote_xyz']
     # sa4_xyz
     gt_center = data_dict['center_label'][:,:,0:3]
     B = gt_center.shape[0]
@@ -469,7 +469,7 @@ def computer_match_label_loss(data_dict,config):
     numer_preded_matched = (pred_logits[idx].argmax(-1) != pred_logits.shape[-1] -1 ).sum(0)
 
     card_err_all     = F.l1_loss(numer_preded_all.float(),gt_num_bbox.float())
-    card_err_matched = F.l1_loss(numer_preded_matched.float(),gt_num_bbox.float())
+    card_err_matched = F.l1_loss(numer_preded_matched.float(),gt_num_bbox.sum(0).float())
 
     # _, test_all_pred = pred_logits.topk(1, 2, True, True)
 
@@ -479,7 +479,7 @@ def computer_match_label_loss(data_dict,config):
     # pred_logits_rand = torch.rand(pred_logits_rand.shape[:3]).cuda()
     # ce_loss_rand = F.cross_entropy(pred_logits_rand.transpose(1, 2), gt_classes, empty_weight)
 
-    return ce_loss , class_error
+    return ce_loss , class_error , card_err_all, card_err_matched
 
 def get_corner(data,config,indices,idx):
         # predicted box
@@ -571,38 +571,57 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    # # Obj loss
-    # objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
-    # num_proposal = objectness_label.shape[1]
-    # total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
-    # data_dict['objectness_label'] = objectness_label
-    # data_dict['objectness_mask'] = objectness_mask
-    # data_dict['object_assignment'] = object_assignment
-    # data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
-    # data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
+    # # Vote loss
+    vote_loss = compute_vote_loss(data_dict)
+    # Obj loss
+    objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
+    num_proposal = objectness_label.shape[1]
+    total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
+    data_dict['objectness_label'] = objectness_label
+    data_dict['objectness_mask'] = objectness_mask
+    data_dict['object_assignment'] = object_assignment
+    data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
+    data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
 
-    # # Box loss and sem cls loss
-    # center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
-    # box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
+    # Box loss and sem cls loss
+    center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
+    box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
+    data_dict['vote_loss'] = vote_loss
+    data_dict['objectness_loss'] = objectness_loss
+    data_dict['center_loss'] = center_loss
+    data_dict['heading_cls_loss'] = heading_cls_loss
+    data_dict['heading_reg_loss'] = heading_reg_loss
+    data_dict['size_cls_loss'] = size_cls_loss
+    data_dict['size_reg_loss'] = size_reg_loss
+    data_dict['sem_cls_loss'] = sem_cls_loss
+    data_dict['scan_box_loss'] = box_loss
+
+
+    ##################
 
     data_dict = matcher(data_dict)
 
     #Loss from deter
     match_box_loss, giou_loss = compute_match_box_loss(data_dict,config)
-    ce_loss , class_error = computer_match_label_loss(data_dict,config)
+    ce_loss , class_error, card_err_all, card_err_matched = computer_match_label_loss(data_dict,config)
     # ce_loss , class_error = match_box_loss, giou_loss
 
     data_dict['box_loss'] = match_box_loss
     data_dict['giou_loss'] = giou_loss  # TODO: Change objectness loss name to giou loss
     data_dict['ce_loss'] = ce_loss
     data_dict['class_error'] = class_error  # No grad
+    data_dict['card_err_all'] = card_err_all
+    data_dict['card_err_matched'] = card_err_matched
     
     
-    loss = 5*data_dict['box_loss'] + 1* data_dict['ce_loss'] + 2*data_dict['giou_loss'] 
+    # loss = 5*data_dict['box_loss'] + 1* data_dict['ce_loss'] + 2*data_dict['giou_loss'] 
     
 
-    # loss = 0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 
-    # loss *= 10 # amplify
+
+
+    # Final loss function
+    loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + box_loss + 0.1*data_dict['sem_cls_loss'] 
+    loss *= 10 # amplify
 
     data_dict['loss'] = loss
     return loss, data_dict

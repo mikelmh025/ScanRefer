@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/PCT_Detr_Full_100proposal",
+                "outputs/UB_color_cpN10_contr10",
                 "--detection",
                 "--matchdet",
                 "--use_color",
@@ -88,7 +88,7 @@
                 "--cp_aug",
                 "0",
                 "--num_workers",
-                "1"
+                "1",
             ]
         },
         {

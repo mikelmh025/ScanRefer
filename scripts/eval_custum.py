@@ -378,6 +378,8 @@ def eval_matcher(args):
 
     # dataloader
     _, dataloader = get_dataloader(args, scanrefer, scene_list, "val", DC)
+    # _, dataloader = get_dataloader(args, scanrefer, scene_list, "train", DC)
+    
 
     # model
     model = get_model(args, DC)
@@ -404,94 +406,101 @@ def eval_matcher(args):
     loss_giou = []
     loss_ce = []
     loss_class = []
+    error_card_all = []
+    error_card_matched = []
+
 
     iou25_list = []
     iou5_list = []
     iou75_list = []
-    for data in tqdm(dataloader):
-        for key in data:
-            data[key] = data[key].cuda()
+    for i in range (5):
+        print("Running Round: ", i+1)
+        for data in tqdm(dataloader):
+            for key in data:
+                data[key] = data[key].cuda()
 
-        # feed
-        with torch.no_grad():
-            data = model(data)
-            _, data = get_loss(
-                data_dict=data, 
-                config=DC, 
-                detection=True,
-                reference=False
-            )
-            
+            # feed
+            with torch.no_grad():
+                data = model(data)
+                _, data = get_loss(
+                    data_dict=data, 
+                    config=DC, 
+                    detection=True,
+                    reference=False
+                )
+                
 
-            # predicted box
-            pred_center = data['center'].detach().cpu().numpy()
-            pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
-            pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-            pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-            pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-            pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
-            pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-            pred_size_class = pred_size_class.detach().cpu().numpy()
-            pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+                # predicted box
+                pred_center = data['center'].detach().cpu().numpy()
+                pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
+                pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+                pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+                pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+                pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
+                pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+                pred_size_class = pred_size_class.detach().cpu().numpy()
+                pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
 
-            # ground truth bbox
-            gt_center = data['center_label'].cpu().numpy() # (B,128,3)
-            number_box = data["num_bbox"].cpu().numpy() #B
-            gt_heading_class = data['heading_class_label'].cpu().numpy() # B,128
-            gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,128
-            gt_size_class = data['size_class_label'].cpu().numpy() # B,128
-            gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
+                # ground truth bbox
+                gt_center = data['center_label'].cpu().numpy() # (B,128,3)
+                number_box = data["num_bbox"].cpu().numpy() #B
+                gt_heading_class = data['heading_class_label'].cpu().numpy() # B,128
+                gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,128
+                gt_size_class = data['size_class_label'].cpu().numpy() # B,128
+                gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
 
-            indices = data["match_indices_list"]
-            idx = _get_src_permutation_idx(indices)
-            pred_center             = pred_center[idx]
-            pred_heading_class      = pred_heading_class[idx]
-            pred_heading_residual   = pred_heading_residual[idx]
-            pred_size_class         = pred_size_class[idx]
-            pred_size_residual      = pred_size_residual[idx]
+                indices = data["match_indices_list"]
+                idx = _get_src_permutation_idx(indices)
+                pred_center             = pred_center[idx]
+                pred_heading_class      = pred_heading_class[idx]
+                pred_heading_residual   = pred_heading_residual[idx]
+                pred_size_class         = pred_size_class[idx]
+                pred_size_residual      = pred_size_residual[idx]
 
-            gt_center_list              = []
-            gt_heading_class_list       = []
-            gt_heading_residual_list    = []
-            gt_size_class_list          = []
-            gt_size_residual_list       = []
-            for i in range(gt_center.shape[0]):
-                gt_center_list                      .append(gt_center[i,:number_box[i],:])
-                gt_heading_class_list               .append(gt_heading_class[i,:number_box[i]])
-                gt_heading_residual_list            .append(gt_heading_residual[i,:number_box[i]])
-                gt_size_class_list                  .append(gt_size_class[i,:number_box[i]])
-                gt_size_residual_list               .append(gt_size_residual[i,:number_box[i],:])
+                gt_center_list              = []
+                gt_heading_class_list       = []
+                gt_heading_residual_list    = []
+                gt_size_class_list          = []
+                gt_size_residual_list       = []
+                for i in range(gt_center.shape[0]):
+                    gt_center_list                      .append(gt_center[i,:number_box[i],:])
+                    gt_heading_class_list               .append(gt_heading_class[i,:number_box[i]])
+                    gt_heading_residual_list            .append(gt_heading_residual[i,:number_box[i]])
+                    gt_size_class_list                  .append(gt_size_class[i,:number_box[i]])
+                    gt_size_residual_list               .append(gt_size_residual[i,:number_box[i],:])
 
-            gt_center           = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0).cpu().numpy()
-            gt_heading_class    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_heading_class_list, indices)], dim=0).cpu().numpy()
-            gt_heading_residual = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_heading_residual_list, indices)], dim=0).cpu().numpy()
-            gt_size_class       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_class_list, indices)], dim=0).cpu().numpy()
-            gt_size_residual    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_residual_list, indices)], dim=0).cpu().numpy()
+                gt_center           = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0).cpu().numpy()
+                gt_heading_class    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_heading_class_list, indices)], dim=0).cpu().numpy()
+                gt_heading_residual = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_heading_residual_list, indices)], dim=0).cpu().numpy()
+                gt_size_class       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_class_list, indices)], dim=0).cpu().numpy()
+                gt_size_residual    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_residual_list, indices)], dim=0).cpu().numpy()
 
-            pred_obb_batch = DC.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
-                            pred_size_class, pred_size_residual)
-            pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+                pred_obb_batch = DC.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
+                                pred_size_class, pred_size_residual)
+                pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
 
 
-            gt_obb_batch = DC.param2obb_batch(gt_center[:, 0:3], gt_heading_class, gt_heading_residual,
-                            gt_size_class, gt_size_residual)
-            gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
-            
-            # NUM_GT x NUM_PRED
-            n_true = number_box[i]
-            n_pred = pred_bbox_batch.shape[0]
-            
+                gt_obb_batch = DC.param2obb_batch(gt_center[:, 0:3], gt_heading_class, gt_heading_residual,
+                                gt_size_class, gt_size_residual)
+                gt_bbox_batch = get_3d_box_batch(gt_obb_batch[:, 3:6], gt_obb_batch[:, 6], gt_obb_batch[:, 0:3])
+                
+                # NUM_GT x NUM_PRED
+                n_true = number_box[i]
+                n_pred = pred_bbox_batch.shape[0]
+                
 
-            iou25, iou5, iou75  = match_bboxes(gt_bbox_batch,pred_bbox_batch,n_true,n_pred,IOU_THRESH=0.25)
-            iou25_list.append(iou25)
-            iou5_list.append(iou5)
-            iou75_list.append(iou75)
+                iou25, iou5, iou75  = match_bboxes(gt_bbox_batch,pred_bbox_batch,n_true,n_pred,IOU_THRESH=0.25)
+                iou25_list.append(iou25)
+                iou5_list.append(iou5)
+                iou75_list.append(iou75)
 
-            loss.append(data["loss"])
-            loss_box.append(data["box_loss"])
-            loss_giou.append(data["giou_loss"])
-            loss_ce.append(data["ce_loss"])
-            loss_class.append(data["class_error"])
+                loss.append(data["loss"])
+                loss_box.append(data["box_loss"])
+                loss_giou.append(data["giou_loss"])
+                loss_ce.append(data["ce_loss"])
+                loss_class.append(data["class_error"])
+                error_card_all.append(data["card_err_all"])
+                error_card_matched.append(data["card_err_matched"])
             
 
     loss = sum(loss)/len(loss)
@@ -499,6 +508,8 @@ def eval_matcher(args):
     loss_giou = sum(loss_giou)/len(loss_giou)
     loss_ce = sum(loss_ce)/len(loss_ce)
     loss_class = sum(loss_class)/len(loss_class)
+    error_card_all = sum(error_card_all)/len(error_card_all)
+    error_card_matched = sum(error_card_matched)/len(error_card_matched)
 
     iou25_list = sum(iou25_list)/len(iou25_list)
     iou5_list = sum(iou5_list)/len(iou5_list)
@@ -511,6 +522,8 @@ def eval_matcher(args):
     print("loss_giou: ", loss_giou)
     print("loss_ce: ", loss_ce)
     print("loss_class: ", loss_class)
+    print("error_card_all: ",error_card_all)
+    print("error_card_matched: ",error_card_matched)
 
     print("iou25_list: ",iou25_list)
     print("iou5_list: ",iou5_list)

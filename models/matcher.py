@@ -29,9 +29,9 @@ class HungarianMatcher(nn.Module):
             cost_giou: This is the relative weight of the giou loss of the bounding box in the matching cost
         """
         super().__init__()
-        self.cost_class = cost_class
-        self.cost_bbox = cost_bbox
-        self.cost_giou = cost_giou
+        self.cost_class = 10 #cost_class
+        self.cost_bbox = 5 # cost_bbox
+        self.cost_giou = 2 #cost_giou
         assert cost_class != 0 or cost_bbox != 0 or cost_giou != 0, "all costs cant be 0"
         self.DC = ScannetDatasetConfig()
 
@@ -96,10 +96,16 @@ class HungarianMatcher(nn.Module):
 
         # Compute the giou cost betwen boxes
         cost_giou = -generalized_box_iou(out_bbox,gt_corner)
+        cost_giou = torch.tensor(cost_giou)
 
         # Final cost matrix
-        C = self.cost_bbox * cost_bbox + self.cost_giou * cost_giou + self.cost_class * cost_class 
+        C = self.cost_bbox * cost_bbox + self.cost_giou * cost_giou #+ self.cost_class * cost_class 
         C = C.view(bs, num_queries, -1).cpu()
+
+        mean_cost_bbox = torch.mean(torch.abs(cost_bbox))
+        mean_cost_giou = torch.mean(torch.abs(cost_giou))
+        mean_cost_class = torch.mean(torch.abs(cost_class)) 
+        C_test               = torch.mean(torch.abs(C))
 
         # sizes = gt_num_bbox
         sizes = [gt_num_bbox[i] for i in range (gt_num_bbox.shape[0])]
