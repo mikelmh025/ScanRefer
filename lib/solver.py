@@ -51,6 +51,7 @@ ITER_REPORT_TEMPLATE = """
 [loss] train_giou_loss: {train_giou_loss}
 [loss] train_ce_loss: {train_ce_loss}
 [loss] train_class_error: {train_class_error}
+[sco.] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [info] mean_fetch_time: {mean_fetch_time}s
 [info] mean_forward_time: {mean_forward_time}s
 [info] mean_backward_time: {mean_backward_time}s
@@ -94,15 +95,15 @@ EPOCH_REPORT_TEMPLATE = """
 ---------------------------------summary---------------------------------
 [train] train_loss: {train_loss}
 [train] train_box_loss: {train_box_loss}
+[train] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [loss] train_giou_loss: {train_giou_loss}
 [loss] train_ce_loss: {train_ce_loss}
 [loss] train_class_error: {train_class_error}
-[train] train_iou_rate_0.25: {train_iou_rate_25}, train_iou_rate_0.5: {train_iou_rate_5}
 [val]   val_loss: {val_loss}
 [val]   val_box_loss: {val_box_loss}
-[val] val_giou_loss: {val_giou_loss}
-[val] val_ce_loss: {val_ce_loss}
-[val] val_class_error: {val_class_error}
+[val]   val_giou_loss: {val_giou_loss}
+[val]   val_ce_loss: {val_ce_loss}
+[val]   val_class_error: {val_class_error}
 [val]   val_iou_rate_0.25: {val_iou_rate_25}, val_iou_rate_0.5: {val_iou_rate_5}
 """
 
@@ -429,7 +430,7 @@ class Solver():
             
             # eval
             start = time.time()
-            # self._eval(data_dict)
+            self._eval(data_dict)
             self.log[phase]["eval"].append(time.time() - start)
 
             # record log
@@ -463,13 +464,13 @@ class Solver():
                     self._train_report(epoch_id)
 
                 # evaluation
-                # if self._global_iter_id % self.val_step == 0:
-                #     print("evaluating...")
-                #     # val
-                #     self._feed(self.dataloader["val"], "val", epoch_id)
-                #     self._dump_log("val")
-                #     self._set_phase("train")
-                #     self._epoch_report(epoch_id)
+                if self._global_iter_id % self.val_step == 0:
+                    print("evaluating...")
+                    # val
+                    self._feed(self.dataloader["val"], "val", epoch_id)
+                    self._dump_log("val")
+                    self._set_phase("train")
+                    self._epoch_report(epoch_id)
 
                 # dump log
                 self._dump_log("train")
@@ -601,6 +602,8 @@ class Solver():
             train_giou_loss=round(np.mean([v for v in self.log["train"]["giou_loss"]]), 5),
             train_ce_loss=round(np.mean([v for v in self.log["train"]["ce_loss"]]), 5),
             train_class_error=round(np.mean([v for v in self.log["train"]["class_error"]]), 5),
+            train_iou_rate_25=round(np.mean([v for v in self.log["train"]["iou_rate_0.25"]]), 5),
+            train_iou_rate_5=round(np.mean([v for v in self.log["train"]["iou_rate_0.5"]]), 5),
             mean_fetch_time=round(np.mean(fetch_time), 5),
             mean_forward_time=round(np.mean(forward_time), 5),
             mean_backward_time=round(np.mean(backward_time), 5),

@@ -571,7 +571,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    # # Vote loss
+    # Vote loss
     vote_loss = compute_vote_loss(data_dict)
     # Obj loss
     objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
@@ -619,7 +619,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
 
 
-    # Final loss function
+    # # Final loss function
     loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + box_loss + 0.1*data_dict['sem_cls_loss'] 
     loss *= 10 # amplify
 

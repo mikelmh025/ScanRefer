@@ -99,7 +99,7 @@ class HungarianMatcher(nn.Module):
         cost_giou = torch.tensor(cost_giou)
 
         # Final cost matrix
-        C = self.cost_bbox * cost_bbox + self.cost_giou * cost_giou #+ self.cost_class * cost_class 
+        C = self.cost_bbox * cost_bbox + self.cost_giou * cost_giou + self.cost_class * cost_class 
         C = C.view(bs, num_queries, -1).cpu()
 
         mean_cost_bbox = torch.mean(torch.abs(cost_bbox))

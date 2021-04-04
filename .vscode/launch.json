@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/UB_color_cpN10_contr10",
+                "outputs/PCT_Detr_Full_Mb5g2c10",
                 "--detection",
                 "--matchdet",
                 "--use_color",
