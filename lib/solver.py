@@ -163,18 +163,10 @@ class Solver():
         self.best = {
             "epoch": 0,
             "loss": float("inf"),
-            "ref_loss": float("inf"),
-            "mask_loss":float("inf"),
-            "contr_loss":float("inf"),
-            "lang_loss": float("inf"),
-            "objectness_loss": float("inf"),
-            "vote_loss": float("inf"),
             "box_loss": float("inf"),
-            "lang_acc": -float("inf"),
-            "ref_acc": -float("inf"),
-            "obj_acc": -float("inf"),
-            "pos_ratio": -float("inf"),
-            "neg_ratio": -float("inf"),
+            "giou_loss": float("inf"),
+            "ce_loss": float("inf"),
+            "class_error": float("inf"),
             "iou_rate_0.25": -float("inf"),
             "iou_rate_0.5": -float("inf")
         }
@@ -247,6 +239,7 @@ class Solver():
                 self._log("saving last models...\n")
                 model_root = os.path.join(CONF.PATH.OUTPUT, self.stamp)
                 torch.save(self.model.state_dict(), os.path.join(model_root, "model_last.pth"))
+                self._finish(epoch_id)
 
                 # update lr scheduler
                 if self.lr_scheduler:
@@ -321,13 +314,17 @@ class Solver():
         self.optimizer.step()
 
     def _compute_loss(self, data_dict):
+
+        self.matcher = True if self.epoch > 5 else False
+
         _, data_dict = get_loss(
             data_dict=data_dict, 
             config=self.config, 
             detection=self.detection,
             reference=self.reference, 
             mask_aug=self.mask_aug,
-            use_lang_classifier=self.use_lang_classifier
+            use_lang_classifier=self.use_lang_classifier,
+            matcher=self.matcher
         )
 
         # dump
@@ -346,6 +343,8 @@ class Solver():
 
 
     def _eval(self, data_dict):
+        if self.matcher == False: return
+        
         data_dict = get_eval_cu(
             data=data_dict,
             config=self.config
@@ -479,9 +478,9 @@ class Solver():
 
         # check best
         if phase == "val":
-            cur_criterion = "iou_rate_0.5"
+            cur_criterion = "loss"
             cur_best = np.mean(self.log[phase][cur_criterion])
-            if cur_best > self.best[cur_criterion]:
+            if cur_best < self.best[cur_criterion]:
                 self._log("best {} achieved: {}".format(cur_criterion, cur_best))
                 self._log("current train_loss: {}".format(np.mean(self.log["train"]["loss"])))
                 self._log("current val_loss: {}".format(np.mean(self.log["val"]["loss"])))
@@ -662,21 +661,10 @@ class Solver():
         best_report = self.__best_report_template.format(
             epoch=self.best["epoch"],
             loss=round(self.best["loss"], 5),
-            ref_loss=round(self.best["ref_loss"], 5),
-            mask_loss=round(self.best["mask_loss"],5),
-            contr_loss=round(self.best["contr_loss"], 5),
-            lang_loss=round(self.best["lang_loss"], 5),
-            objectness_loss=round(self.best["objectness_loss"], 5),
-            vote_loss=round(self.best["vote_loss"], 5),
             box_loss=round(self.best["box_loss"], 5),
             giou_loss=round(self.best["giou_loss"], 5),
             ce_loss=round(self.best["ce_loss"], 5),
             class_error=round(self.best["class_error"], 5),
-            lang_acc=round(self.best["lang_acc"], 5),
-            ref_acc=round(self.best["ref_acc"], 5),
-            obj_acc=round(self.best["obj_acc"], 5),
-            pos_ratio=round(self.best["pos_ratio"], 5),
-            neg_ratio=round(self.best["neg_ratio"], 5),
             iou_rate_25=round(self.best["iou_rate_0.25"], 5),
             iou_rate_5=round(self.best["iou_rate_0.5"], 5),
         )
