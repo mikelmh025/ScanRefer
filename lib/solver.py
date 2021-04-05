@@ -315,7 +315,7 @@ class Solver():
 
     def _compute_loss(self, data_dict):
 
-        self.matcher = True if self.epoch > 5 else False
+        self.use_matcher = True if self.epoch > 5 else False
 
         _, data_dict = get_loss(
             data_dict=data_dict, 
@@ -324,7 +324,7 @@ class Solver():
             reference=self.reference, 
             mask_aug=self.mask_aug,
             use_lang_classifier=self.use_lang_classifier,
-            matcher=self.matcher
+            use_matcher=self.use_matcher
         )
 
         # dump
@@ -343,7 +343,7 @@ class Solver():
 
 
     def _eval(self, data_dict):
-        if self.matcher == False: return
+        if self.use_matcher == False: return
         
         data_dict = get_eval_cu(
             data=data_dict,

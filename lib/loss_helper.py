@@ -560,7 +560,7 @@ def _get_src_permutation_idx(indices):
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
-def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False,mask_aug=False,matcher=False):
+def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False,mask_aug=False,use_matcher=False):
     """ Loss functions
 
     Args:
@@ -572,7 +572,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         data_dict: dict
     """
     
-    if matcher:
+    if use_matcher:
         #Loss from deter
         data_dict = matcher(data_dict)
         match_box_loss, giou_loss = compute_match_box_loss(data_dict,config)
