@@ -578,7 +578,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         match_box_loss, giou_loss = compute_match_box_loss(data_dict,config)
         ce_loss , class_error, card_err_all, card_err_matched = computer_match_label_loss(data_dict,config)
 
-        loss = 5*data_dict['box_loss'] + 1* data_dict['ce_loss'] + 2*data_dict['giou_loss'] 
+        loss = 5*match_box_loss + 1* ce_loss + 2*giou_loss
 
         
     else:
@@ -609,7 +609,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
         match_box_loss, giou_loss = box_loss*0, box_loss* 0
         ce_loss , class_error, card_err_all, card_err_matched = box_loss*0, box_loss*0, box_loss*0, box_loss*0
-        
+
         loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + box_loss + 0.1*data_dict['sem_cls_loss'] 
         loss *= 10 # amplify
         
