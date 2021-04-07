@@ -7,15 +7,19 @@ import os
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from models.backbone_module import Pointnet2Backbone
 from models.voting_module import VotingModule
-from models.selfAttn_module import SelfAttnModule
-from models.proposal_module import ProposalModule
-from models.lang_module import LangModule
-from models.match_module import MatchModule
+from models.encoder_module import EncoderModule
+from models.decoder_module import DecoderModule
+
+
+# from models.proposal_module import ProposalModule
+# from models.lang_module import LangModule
+# from models.match_module import MatchModule
+
 from models.transformer_module import TransformerModule
 from transformers import AutoModel, AutoTokenizer, BertTokenizer
 from transformers import BertModel
 
-from models.matcher import build_matcher
+# from models.matcher import build_matcher
 
 
 class RefNet(nn.Module):
@@ -43,16 +47,14 @@ class RefNet(nn.Module):
         # --------- PROPOSAL GENERATION ---------
         # Backbone point feature learning
         self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim,attn=self.attn)
+        self.encoder = EncoderModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        self.decoder = DecoderModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        # Hough voting
-        self.vgen = VotingModule(self.vote_factor, 256)
+        # # Hough voting
+        # self.vgen = VotingModule(self.vote_factor, 256)
 
-        self.selfAttn = SelfAttnModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
-
-        # self.matcher = build_matcher()
-
-        # Vote aggregation and object proposal
-        self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        # # Vote aggregation and object proposal
+        # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
         # if not no_reference:
         #     # --------- LANGUAGE ENCODING ---------
@@ -69,6 +71,7 @@ class RefNet(nn.Module):
         # self.Linear_bert_out_pool = nn.Conv1d(768, 512, kernel_size=1, bias=False)
 
         # self.TransformerModule = TransformerModule()
+        
 
     def forward(self, data_dict):
         """ Forward pass of the network
@@ -118,31 +121,34 @@ class RefNet(nn.Module):
         #                                     #
         #######################################
 
-        # --------- HOUGH VOTING ---------
+        
         data_dict = self.backbone_net(data_dict)
+        data_dict = self.encoder(data_dict)
+        data_dict = self.decoder(data_dict)
+
+
                 
-        # --------- HOUGH VOTING ---------
-        xyz = data_dict["fp2_xyz"]
-        features = data_dict["fp2_features"]
-        data_dict["seed_inds"] = data_dict["fp2_inds"]
-        data_dict["seed_xyz"] = xyz
-        data_dict["seed_features"] = features
+        # # --------- HOUGH VOTING ---------
+        # xyz = data_dict["fp2_xyz"]
+        # features = data_dict["fp2_features"]
+        # data_dict["seed_inds"] = data_dict["fp2_inds"]
+        # data_dict["seed_xyz"] = xyz
+        # data_dict["seed_features"] = features
 
         
         
-        xyz, features = self.vgen(xyz, features)
-        features_norm = torch.norm(features, p=2, dim=1)
-        features = features.div(features_norm.unsqueeze(1))
-        data_dict["vote_xyz"] = xyz
-        data_dict["vote_features"] = features
+        # xyz, features = self.vgen(xyz, features)
+        # features_norm = torch.norm(features, p=2, dim=1)
+        # features = features.div(features_norm.unsqueeze(1))
+        # data_dict["vote_xyz"] = xyz
+        # data_dict["vote_features"] = features
 
-        # --------- PROPOSAL GENERATION ---------
-        data_dict = self.proposal(xyz, features, data_dict)
+        # # --------- PROPOSAL GENERATION ---------
+        # data_dict = self.proposal(xyz, features, data_dict)
 
         
-        # data_dict = self.selfAttn(data_dict)
 
-        # data_dict = self.matcher(data_dict)
+        
         
 
 

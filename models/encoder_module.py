@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-class SelfAttnModule(nn.Module):
+class EncoderModule(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling,
     channels=256):
         super().__init__() 
@@ -31,23 +31,23 @@ class SelfAttnModule(nn.Module):
         self.sAttn3 = SA_Layer(channels)
         self.sAttn4 = SA_Layer(channels)
         
-        self.Linear_out1 = nn.Conv1d(channels*4, channels*2, kernel_size=1, bias=False)
-        
-        # Downstream, inspired by PCT
-        # self.part_num = 50
-
-        self.conv_fuse = nn.Sequential(nn.Conv1d(1024, 1024, kernel_size=1, bias=False),
-                                   nn.BatchNorm1d(1024),
+        self.conv_fuse = nn.Sequential(nn.Conv1d(channels*5, channels*4, kernel_size=1, bias=False),
+                                   nn.BatchNorm1d(channels*4),
                                    nn.LeakyReLU(0.2))
         
-        self.convs1 = nn.Conv1d(1024 * 3, 512, 1)
-        self.dp1 = nn.Dropout(0.5)
-        self.convs2 = nn.Conv1d(512, 256, 1)
-        self.convs3 = nn.Conv1d(256, self.score_out, 1)
+        self.convs1 = nn.Conv1d(channels*4*3, channels*2, 1)
         self.bns1 = nn.BatchNorm1d(512)
-        self.bns2 = nn.BatchNorm1d(256)
+        self.dp1 = nn.Dropout(0.5)
 
-        self.relu = nn.ReLU()
+        self.convs2 = nn.Conv1d(channels*2, channels, 1)
+        self.bns2 = nn.BatchNorm1d(256)
+        self.dp2 = nn.Dropout(0.5)
+        
+        # self.convs3 = nn.Conv1d(channels, channels+100, 1)
+        self.bns3 = nn.BatchNorm1d(256)   
+
+        self.conv3 = nn.Conv1d(channels, self.score_out, 1)
+        
     def forward(self, data_dict):
         # 
         # b, 3, npoint, nsample  
@@ -59,28 +59,37 @@ class SelfAttnModule(nn.Module):
         batch_size, _, N = x.size()
 
         # B, D, N
+        # Self attention + pre norm
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x1 = self.sAttn1(x)
         x2 = self.sAttn2(x1)
         x3 = self.sAttn3(x2)
         x4 = self.sAttn4(x3)
-        x = torch.cat((x1, x2, x3, x4), dim=1)
-        ###
+
+        # Fuse output of each four attention layer
+        x = torch.cat((x, x1, x2, x3, x4), dim=1)
         x = self.conv_fuse(x)
+        
         x_max = torch.max(x, 2)[0]
         x_avg = torch.mean(x, 2)
         x_max_feature = x_max.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
         x_avg_feature = x_avg.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
-        x_global_feature = torch.cat((x_max_feature, x_avg_feature), 1) # 1024 + 64
+        x_global_feature = torch.cat((x_max_feature, x_avg_feature), 1) # 1024 
+        x = torch.cat((x, x_global_feature), 1) # 1024 * 3 
 
-        x = torch.cat((x, x_global_feature), 1) # 1024 * 3 + 64 
-        x = self.relu(self.bns1(self.convs1(x)))
-        x = self.dp1(x)
-        x = self.relu(self.bns2(self.convs2(x)))
-        x = self.convs3(x)
-        data_dict["selfAttn_features"] = x
-        data_dict = self.decode_scores(x, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)
+        #Feed forward
+        x = F.leaky_relu(self.bns1(self.convs1(x)), negative_slope=0.2)
+        x = x + self.dp1(x)
+        x = F.leaky_relu(self.bns2(self.convs2(x)), negative_slope=0.2)
+        x = x + self.dp2(x)
+        x = self.bns3(x)
+
+        data_dict["memory"] = x
+        
+        # data_dict["selfAttn_features"] = x
+        # x = self.conv3(x)
+        # data_dict = self.decode_scores(x, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)
 
 
         return data_dict

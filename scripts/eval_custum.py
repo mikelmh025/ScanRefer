@@ -426,7 +426,8 @@ def eval_matcher(args):
                     data_dict=data, 
                     config=DC, 
                     detection=True,
-                    reference=False
+                    reference=False,
+                    use_matcher=True
                 )
                 
 
