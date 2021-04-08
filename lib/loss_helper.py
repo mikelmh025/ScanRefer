@@ -87,7 +87,7 @@ def compute_objectness_loss(data_dict):
             within [0,num_gt_object-1]
     """ 
     # Associate proposal and GT objects by point-to-point distances
-    aggregated_vote_xyz = data_dict['aggregated_vote_xyz']
+    aggregated_vote_xyz = data_dict['center']
     # sa4_xyz
     gt_center = data_dict['center_label'][:,:,0:3]
     B = gt_center.shape[0]
@@ -580,10 +580,17 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
 
         loss = 5*match_box_loss + 1* ce_loss + 2*giou_loss
 
+        data_dict['box_loss'] = match_box_loss
+        data_dict['giou_loss'] = giou_loss  # TODO: Change objectness loss name to giou loss
+        data_dict['ce_loss'] = ce_loss
+        data_dict['class_error'] = class_error  # No grad
+        data_dict['card_err_all'] = card_err_all
+        data_dict['card_err_matched'] = card_err_matched
+
         
     else:
         # Vote loss
-        vote_loss = compute_vote_loss(data_dict)
+        # vote_loss = compute_vote_loss(data_dict)
         # Obj loss
         objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
         num_proposal = objectness_label.shape[1]
@@ -597,7 +604,8 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         # Box loss and sem cls loss
         center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
         box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
-        data_dict['vote_loss'] = vote_loss
+        
+        data_dict['box_loss'] = box_loss
         data_dict['objectness_loss'] = objectness_loss
         data_dict['center_loss'] = center_loss
         data_dict['heading_cls_loss'] = heading_cls_loss
@@ -610,19 +618,21 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         match_box_loss, giou_loss = box_loss*0, box_loss* 0
         ce_loss , class_error, card_err_all, card_err_matched = box_loss*0, box_loss*0, box_loss*0, box_loss*0
 
-        loss = data_dict['vote_loss'] + 0.5*data_dict['objectness_loss'] + box_loss + 0.1*data_dict['sem_cls_loss'] 
+        loss =  0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 
         loss *= 10 # amplify
+
+        
+        data_dict['giou_loss'] = objectness_loss  # TODO: Change objectness loss name to giou loss
+        data_dict['ce_loss'] = sem_cls_loss
+        data_dict['class_error'] = class_error  # No grad
+        data_dict['card_err_all'] = card_err_all
+        data_dict['card_err_matched'] = card_err_matched
         
 
 
     
 
-    data_dict['box_loss'] = match_box_loss
-    data_dict['giou_loss'] = giou_loss  # TODO: Change objectness loss name to giou loss
-    data_dict['ce_loss'] = ce_loss
-    data_dict['class_error'] = class_error  # No grad
-    data_dict['card_err_all'] = card_err_all
-    data_dict['card_err_matched'] = card_err_matched
+    
     
     
     # loss = 5*data_dict['box_loss'] + 1* data_dict['ce_loss'] + 2*data_dict['giou_loss'] 
