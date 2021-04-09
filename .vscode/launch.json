@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/PCT_Detr_Full_Mb5g2c10",
+                "outputs/2021-04-07_23-08-21",
                 "--detection",
                 "--matchdet",
                 "--use_color",

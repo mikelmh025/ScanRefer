@@ -8,7 +8,7 @@ import torch
 from scipy.optimize import linear_sum_assignment
 from torch import nn
 from data.scannet.model_util_scannet import ScannetDatasetConfig
-from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, box3d_iou_batch,generalized_box_iou
+from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, box3d_iou_batch,generalized_box_iou, get_3d_box_batch_no_heading
 import numpy as np
 
 
@@ -133,14 +133,15 @@ class HungarianMatcher(nn.Module):
     def get_corner(self,data):
         # predicted box
         pred_center = data['center'].detach().cpu().numpy()
-        pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
-        pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-        pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-        pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-        pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
-        pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-        pred_size_class = pred_size_class.detach().cpu().numpy()
-        pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+        pred_size = data['size'].detach().cpu().numpy()
+        # pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
+        # pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+        # pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+        # pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+        # pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
+        # pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+        # pred_size_class = pred_size_class.detach().cpu().numpy()
+        # pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
 
         # ground truth bbox
         gt_center = data['center_label'].cpu().numpy() # (B,128,3)
@@ -157,9 +158,9 @@ class HungarianMatcher(nn.Module):
         gt_center_list   = []
 
         for i in range(pred_center.shape[0]):
-            pred_obb_batch = self.DC.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
-                            pred_size_class[i], pred_size_residual[i])
-            pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+            # pred_obb_batch = self.DC.param2obb_batch(pred_center[i, :, 0:3], pred_heading_class[i], pred_heading_residual[i],
+            #                 pred_size_class[i], pred_size_residual[i])
+            pred_bbox_batch = get_3d_box_batch_no_heading(pred_center[i],pred_size[i])
             pred_corner.append(pred_bbox_batch)
             
 

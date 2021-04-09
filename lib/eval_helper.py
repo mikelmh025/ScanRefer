@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from utils.nn_distance import nn_distance, huber_loss
 from lib.ap_helper import parse_predictions
 from lib.loss import SoftmaxRankingLoss
-from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou
+from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, get_3d_box_batch_no_heading
 import scipy.optimize
 
 def eval_ref_one_sample(pred_bbox, gt_bbox):
@@ -46,14 +46,15 @@ def construct_bbox_corners(center, box_size):
 def get_eval_cu(data,config):
     # predicted box
     pred_center = data['center'].detach().cpu().numpy()
-    pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
-    pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-    pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-    pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-    pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
-    pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-    pred_size_class = pred_size_class.detach().cpu().numpy()
-    pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+    pred_size = data['size'].detach().cpu().numpy()
+    # pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
+    # pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+    # pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+    # pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+    # pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
+    # pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+    # pred_size_class = pred_size_class.detach().cpu().numpy()
+    # pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
 
     # ground truth bbox
     gt_center = data['center_label'].cpu().numpy() # (B,128,3)
@@ -63,21 +64,22 @@ def get_eval_cu(data,config):
     gt_size_class = data['size_class_label'].cpu().numpy() # B,128
     gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
 
-    # ground truth bbox
-    gt_center = data['center_label'].cpu().numpy() # (B,128,3)
-    number_box = data["num_bbox"].cpu().numpy() #B
-    gt_heading_class = data['heading_class_label'].cpu().numpy() # B,128
-    gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,128
-    gt_size_class = data['size_class_label'].cpu().numpy() # B,128
-    gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
+    # # ground truth bbox
+    # gt_center = data['center_label'].cpu().numpy() # (B,128,3)
+    # number_box = data["num_bbox"].cpu().numpy() #B
+    # gt_heading_class = data['heading_class_label'].cpu().numpy() # B,128
+    # gt_heading_residual = data['heading_residual_label'].cpu().numpy() # B,128
+    # gt_size_class = data['size_class_label'].cpu().numpy() # B,128
+    # gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
 
     indices = data["match_indices_list"]
     idx = _get_src_permutation_idx(indices)
     pred_center             = pred_center[idx]
-    pred_heading_class      = pred_heading_class[idx]
-    pred_heading_residual   = pred_heading_residual[idx]
-    pred_size_class         = pred_size_class[idx]
-    pred_size_residual      = pred_size_residual[idx]
+    pred_size               = pred_size[idx]
+    # pred_heading_class      = pred_heading_class[idx]
+    # pred_heading_residual   = pred_heading_residual[idx]
+    # pred_size_class         = pred_size_class[idx]
+    # pred_size_residual      = pred_size_residual[idx]
 
     gt_center_list              = []
     gt_heading_class_list       = []
@@ -97,9 +99,10 @@ def get_eval_cu(data,config):
     gt_size_class       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_class_list, indices)], dim=0).cpu().numpy()
     gt_size_residual    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_residual_list, indices)], dim=0).cpu().numpy()
 
-    pred_obb_batch = config.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
-                    pred_size_class, pred_size_residual)
-    pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+    # pred_obb_batch = config.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
+    #                 pred_size_class, pred_size_residual)
+    # pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+    pred_bbox_batch = get_3d_box_batch_no_heading(pred_center,pred_size)
 
 
     gt_obb_batch = config.param2obb_batch(gt_center[:, 0:3], gt_heading_class, gt_heading_residual,

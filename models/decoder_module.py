@@ -31,8 +31,8 @@ class DecoderModule(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         self.query_embed = nn.Embedding(self.num_proposal, d_model)
 
-        # self.class_embed = nn.Linear(d_model, num_class)
-        self.bbox_embed = MLP(d_model, d_model, self.score_out, 3)
+        self.bbox_embed = MLP(d_model, d_model, 3+3, 3)
+        self.class_embed = nn.Linear(d_model, num_class)
         
 
     def forward(self, data_dict):
@@ -54,9 +54,20 @@ class DecoderModule(nn.Module):
 
         # outputs_class = self.class_embed(hs)
         outputs_bbox = self.bbox_embed(hs)#.sigmoid()
-        data_dict["selfAttn_features"] = outputs_bbox[-1].transpose(1, 2)
-        data_dict = self.decode_scores(outputs_bbox[-1].transpose(1, 2), data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)
+        outputs_class = self.class_embed(hs)
 
+        data_dict["selfAttn_features"] = outputs_bbox[-1]
+        data_dict = self.decode_scores_new(outputs_bbox[-1], outputs_class[-1], data_dict)
+        return data_dict
+
+    def decode_scores_new(self, outputs_bbox, outputs_class, data_dict):
+        center = outputs_bbox[:,:,0:3]
+        size = outputs_bbox[:,:,3:6]
+        sem_cls_scores = outputs_class
+
+        data_dict['center'] = center
+        data_dict['size']   = size
+        data_dict['sem_cls_scores'] = sem_cls_scores
         return data_dict
 
     def decode_scores(self, net, data_dict, num_class, num_heading_bin, num_size_cluster, mean_size_arr):

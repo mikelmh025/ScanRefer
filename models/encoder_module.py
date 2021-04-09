@@ -46,7 +46,7 @@ class EncoderModule(nn.Module):
         # self.convs3 = nn.Conv1d(channels, channels+100, 1)
         self.bns3 = nn.BatchNorm1d(256)   
 
-        self.conv3 = nn.Conv1d(channels, self.score_out, 1)
+        # self.conv3 = nn.Conv1d(channels, self.score_out, 1)
         
     def forward(self, data_dict):
         # 

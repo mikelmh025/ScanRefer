@@ -315,7 +315,7 @@ class Solver():
 
     def _compute_loss(self, data_dict,epoch_id):
 
-        self.use_matcher = False#True #if epoch_id > 5 else False
+        self.use_matcher = True #if epoch_id > 5 else False
 
         _, data_dict = get_loss(
             data_dict=data_dict, 
