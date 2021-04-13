@@ -11,9 +11,9 @@ from models.encoder_module import EncoderModule
 from models.decoder_module import DecoderModule
 
 
-# from models.proposal_module import ProposalModule
-# from models.lang_module import LangModule
-# from models.match_module import MatchModule
+from models.proposal_module import ProposalModule
+from models.lang_module import LangModule
+from models.match_module import MatchModule
 
 from models.transformer_module import TransformerModule
 from transformers import AutoModel, AutoTokenizer, BertTokenizer
@@ -50,21 +50,21 @@ class RefNet(nn.Module):
         self.encoder = EncoderModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
         self.decoder = DecoderModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        # # Hough voting
-        # self.vgen = VotingModule(self.vote_factor, 256)
+        # Hough voting
+        self.vgen = VotingModule(self.vote_factor, 256)
 
-        # # Vote aggregation and object proposal
-        # self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        # Vote aggregation and object proposal
+        self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        # if not no_reference:
-        #     # --------- LANGUAGE ENCODING ---------
-        #     # Encode the input descriptions into vectors
-        #     # (including attention and language classification)
-        #     # self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
+        if not no_reference:
+            # --------- LANGUAGE ENCODING ---------
+            # Encode the input descriptions into vectors
+            # (including attention and language classification)
+            # self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
 
-        #     # --------- PROPOSAL MATCHING ---------
-        #     # Match the generated proposals and select the most confident ones
-        #     self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size,mask_aug=self.mask_aug)
+            # --------- PROPOSAL MATCHING ---------
+            # Match the generated proposals and select the most confident ones
+            self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size,mask_aug=self.mask_aug)
 
         # self.model_bert = BertModel.from_pretrained('bert-base-cased')
         # self.Linear_bert_out = nn.Conv1d(768, 512, kernel_size=1, bias=False)

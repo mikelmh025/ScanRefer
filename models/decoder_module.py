@@ -31,9 +31,10 @@ class DecoderModule(nn.Module):
         self.norm = nn.LayerNorm(d_model)
         self.query_embed = nn.Embedding(self.num_proposal, d_model)
 
-        self.bbox_embed = MLP(d_model, d_model, 3+3, 3)
-        self.class_embed = nn.Linear(d_model, num_class)
-        
+        # self.bbox_embed = MLP(d_model, d_model, 3+3, 3)
+        # self.class_embed = nn.Linear(d_model, num_class)
+        self.bbox_embed_full = nn.Conv1d(d_model, self.score_out, 1)
+                
 
     def forward(self, data_dict):
         # query_embed is trainable
@@ -53,11 +54,13 @@ class DecoderModule(nn.Module):
         hs = data_dict["hidden_state"] = intermediate.transpose(1, 2)
 
         # outputs_class = self.class_embed(hs)
-        outputs_bbox = self.bbox_embed(hs)#.sigmoid()
-        outputs_class = self.class_embed(hs)
+        # outputs_bbox = self.bbox_embed(hs)#.sigmoid()
+        # outputs_class = self.class_embed(hs)
+        outputs_bbox = self.bbox_embed_full(hs[-1].transpose(1,2))
 
-        data_dict["selfAttn_features"] = outputs_bbox[-1]
-        data_dict = self.decode_scores_new(outputs_bbox[-1], outputs_class[-1], data_dict)
+        data_dict["selfAttn_features"] = outputs_bbox#[-1]
+        # data_dict = self.decode_scores_new(outputs_bbox[-1], outputs_class[-1], data_dict)
+        data_dict = self.decode_scores(outputs_bbox, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)
         return data_dict
 
     def decode_scores_new(self, outputs_bbox, outputs_class, data_dict):

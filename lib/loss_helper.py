@@ -400,8 +400,8 @@ def compute_match_box_loss(data_dict, config):
     gt_center       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_center_list, indices)], dim=0)
 
     # Predictions data: Box Size
-    predicted_box_size = data_dict['size'][idx]
-    # predicted_box_size = torch.gather(predicted_box_size, 1, gt_class_label.unsqueeze(-1).unsqueeze(-1).repeat(1,1,3)).squeeze(1)   # **
+    predicted_box_size = data_dict['size_residuals'][idx]
+    predicted_box_size = torch.gather(predicted_box_size, 1, gt_class_label.unsqueeze(-1).unsqueeze(-1).repeat(1,1,3)).squeeze(1)   # **
 
         
     ##### Loss Calculation #####
@@ -484,15 +484,15 @@ def computer_match_label_loss(data_dict,config):
 def get_corner(data,config,indices,idx):
         # predicted box
         pred_center = data['center'].detach().cpu().numpy()
-        pred_size = data['size'].detach().cpu().numpy()
-        # pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
-        # pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
-        # pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
-        # pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
-        # pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
-        # pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
-        # pred_size_class = pred_size_class.detach().cpu().numpy()
-        # pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
+        # pred_size = data['size'].detach().cpu().numpy()
+        pred_heading_class = torch.argmax(data['heading_scores'], -1) # B,num_proposal
+        pred_heading_residual = torch.gather(data['heading_residuals'], 2, pred_heading_class.unsqueeze(-1)) # B,num_proposal,1
+        pred_heading_class = pred_heading_class.detach().cpu().numpy() # B,num_proposal
+        pred_heading_residual = pred_heading_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal
+        pred_size_class = torch.argmax(data['size_scores'], -1) # B,num_proposal
+        pred_size_residual = torch.gather(data['size_residuals'], 2, pred_size_class.unsqueeze(-1).unsqueeze(-1).repeat(1,1,1,3)) # B,num_proposal,1,3
+        pred_size_class = pred_size_class.detach().cpu().numpy()
+        pred_size_residual = pred_size_residual.squeeze(2).detach().cpu().numpy() # B,num_proposal,3
 
         # ground truth bbox
         gt_center = data['center_label'].cpu().numpy() # (B,128,3)
@@ -503,11 +503,11 @@ def get_corner(data,config,indices,idx):
         gt_size_residual = data['size_residual_label'].cpu().numpy() # B,128,3
 
         pred_center             = pred_center[idx]
-        pred_size               = pred_size[idx]
-        # pred_heading_class      = pred_heading_class[idx]
-        # pred_heading_residual   = pred_heading_residual[idx]
-        # pred_size_class         = pred_size_class[idx]
-        # pred_size_residual      = pred_size_residual[idx]
+        # pred_size               = pred_size[idx]
+        pred_heading_class      = pred_heading_class[idx]
+        pred_heading_residual   = pred_heading_residual[idx]
+        pred_size_class         = pred_size_class[idx]
+        pred_size_residual      = pred_size_residual[idx]
 
         gt_center_list              = []
         gt_heading_class_list       = []
@@ -527,9 +527,11 @@ def get_corner(data,config,indices,idx):
         gt_size_class       = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_class_list, indices)], dim=0).cpu().numpy()
         gt_size_residual    = torch.cat([torch.as_tensor(t[i]) for t, (_, i) in zip(gt_size_residual_list, indices)], dim=0).cpu().numpy()
 
-        # pred_obb_batch = config.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
-        #                 pred_size_class, pred_size_residual)
-        pred_bbox_batch = get_3d_box_batch_no_heading(pred_center,pred_size)
+        pred_obb_batch = config.param2obb_batch(pred_center[:, 0:3], pred_heading_class, pred_heading_residual,
+                        pred_size_class, pred_size_residual)
+        pred_bbox_batch = get_3d_box_batch(pred_obb_batch[:, 3:6], pred_obb_batch[:, 6], pred_obb_batch[:, 0:3])
+
+        # pred_bbox_batch = get_3d_box_batch_no_heading(pred_size,pred_center)
             
 
         gt_obb_batch = config.param2obb_batch(gt_center[:, 0:3], gt_heading_class, gt_heading_residual,
@@ -573,7 +575,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    
+    use_matcher = False
     if use_matcher:
         #Loss from deter
         data_dict = matcher(data_dict)
@@ -594,6 +596,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         # Vote loss
         # vote_loss = compute_vote_loss(data_dict)
         # Obj loss
+        data_dict = matcher(data_dict)
         objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
         num_proposal = objectness_label.shape[1]
         total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]
