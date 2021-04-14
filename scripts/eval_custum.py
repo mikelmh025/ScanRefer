@@ -522,7 +522,7 @@ def eval_matcher(args):
     print("loss_box: ", loss_box)
     print("loss_giou: ", loss_giou)
     print("loss_ce: ", loss_ce)
-    print("loss_class: ", loss_class)
+    print("class_error: ", loss_class)
     print("error_card_all: ",error_card_all)
     print("error_card_matched: ",error_card_matched)
 

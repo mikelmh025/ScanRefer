@@ -458,9 +458,13 @@ def computer_match_label_loss(data_dict,config):
     ce_loss = F.cross_entropy(pred_logits.transpose(1, 2), gt_classes, empty_weight)
 
     class_error = 100 - accuracy(pred_logits[idx], gt_logits)[0]
+
+    class_error_matched = 100 - accuracy(pred_logits[idx], gt_logits)[0]
     
-    test_pred = pred_logits[idx]
-    test_gt   = gt_logits
+    # test_pred = pred_logits[idx]
+    # test_gt   = gt_logits
+    # test_pred_class = test_pred.argmax(-1)
+    # ce_loss_matched = F.cross_entropy(test_pred, test_gt)
 
     # numer_preded_all     = (pred_logits.argmax(-1) != pred_logits.shape[-1] -1 )
     # numer_preded_matched = (pred_logits[idx].argmax(-1) != pred_logits.shape[-1] -1 )
@@ -470,6 +474,8 @@ def computer_match_label_loss(data_dict,config):
 
     card_err_all     = F.l1_loss(numer_preded_all.float(),gt_num_bbox.float())
     card_err_matched = F.l1_loss(numer_preded_matched.float(),gt_num_bbox.sum(0).float())
+
+
 
     # _, test_all_pred = pred_logits.topk(1, 2, True, True)
 
@@ -575,7 +581,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    use_matcher = False
+    use_matcher = True
     if use_matcher:
         #Loss from deter
         data_dict = matcher(data_dict)
