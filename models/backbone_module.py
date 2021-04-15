@@ -101,6 +101,9 @@ class Pointnet2Backbone(nn.Module):
         # import sys
 
         pointcloud = data_dict["point_clouds"]
+        print("pointcloud",pointcloud.shape)
+        import sys
+        sys.exit()
 
         batch_size = pointcloud.shape[0]
 

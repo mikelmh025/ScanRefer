@@ -21,7 +21,7 @@ class ProposalModule(nn.Module):
         self.num_heading_bin = num_heading_bin
         self.num_size_cluster = num_size_cluster
         self.mean_size_arr = mean_size_arr
-        self.num_proposal = num_proposal
+        self.num_proposal = 100#num_proposal
         self.sampling = sampling
         self.seed_feat_dim = seed_feat_dim
 

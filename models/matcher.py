@@ -122,6 +122,11 @@ class HungarianMatcher(nn.Module):
         # test = torch.abs(test)
         # test = torch.mean(test,-1)
         # argmin = (torch.argmin(test))
+
+        x = []
+        for i, c in enumerate(C.split(sizes, -1)):
+            x.append(linear_sum_assignment(c[i]) )
+            print("a")
         return data_dict
     
     def _get_src_permutation_idx(self,indices):
