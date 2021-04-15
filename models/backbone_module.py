@@ -101,9 +101,6 @@ class Pointnet2Backbone(nn.Module):
         # import sys
 
         pointcloud = data_dict["point_clouds"]
-        print("pointcloud",pointcloud.shape)
-        import sys
-        sys.exit()
 
         batch_size = pointcloud.shape[0]
 
@@ -137,29 +134,29 @@ class Pointnet2Backbone(nn.Module):
             
 
 
-        # --------- 2 FEATURE UPSAMPLING LAYERS --------
-        features = self.fp1(data_dict['sa3_xyz'], data_dict['sa4_xyz'], data_dict['sa3_features'], data_dict['sa4_features'])
-        features = self.fp2(data_dict['sa2_xyz'], data_dict['sa3_xyz'], data_dict['sa2_features'], features)
+        # # --------- 2 FEATURE UPSAMPLING LAYERS --------
+        # features = self.fp1(data_dict['sa3_xyz'], data_dict['sa4_xyz'], data_dict['sa3_features'], data_dict['sa4_features'])
+        # features = self.fp2(data_dict['sa2_xyz'], data_dict['sa3_xyz'], data_dict['sa2_features'], features)
         
-        ###### self attention###############
-        # if self.attn:
-        #     features = features.transpose(0,1).transpose(0,2)
-        #     lan_feature = data_dict["gru_out_feat"].transpose(0,1)
-        #     leng = features.shape[0]
-        #     features = torch.cat([features,lan_feature])
+        # ###### self attention###############
+        # # if self.attn:
+        # #     features = features.transpose(0,1).transpose(0,2)
+        # #     lan_feature = data_dict["gru_out_feat"].transpose(0,1)
+        # #     leng = features.shape[0]
+        # #     features = torch.cat([features,lan_feature])
             
-        #     self_attn_out, _ = self.multhead_attn(features,features,features)
-        #     self_attn_out = self_attn_out[:leng]
+        # #     self_attn_out, _ = self.multhead_attn(features,features,features)
+        # #     self_attn_out = self_attn_out[:leng]
 
-        #     # self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
+        # #     # self_attn_out, _ = self.multhead_attn2(features,self_attn_out,self_attn_out)
 
-        #     features = self_attn_out.transpose(0,2).transpose(0,1)
-        ######################
+        # #     features = self_attn_out.transpose(0,2).transpose(0,1)
+        # ######################
 
-        data_dict['fp2_features'] = features
-        data_dict['fp2_xyz'] = data_dict['sa2_xyz']
-        num_seed = data_dict['fp2_xyz'].shape[1]
-        data_dict['fp2_inds'] = data_dict['sa1_inds'][:,0:num_seed] # indices among the entire input point clouds
+        # data_dict['fp2_features'] = features
+        # data_dict['fp2_xyz'] = data_dict['sa2_xyz']
+        # num_seed = data_dict['fp2_xyz'].shape[1]
+        # data_dict['fp2_inds'] = data_dict['sa1_inds'][:,0:num_seed] # indices among the entire input point clouds
         return data_dict
 
 
