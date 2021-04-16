@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/Trans+det+tunelr",
+                "outputs/2021-04-14_20-30-26",
                 "--detection",
                 "--matchdet",
                 "--use_color",
@@ -84,7 +84,7 @@
                 "--devices",
                 "0",
                 "--batch_size",
-                "1",
+                "6",
                 "--cp_aug",
                 "0",
                 "--num_workers",

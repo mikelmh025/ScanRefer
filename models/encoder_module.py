@@ -47,6 +47,10 @@ class EncoderModule(nn.Module):
         self.bns3 = nn.BatchNorm1d(256)   
 
         # self.conv3 = nn.Conv1d(channels, self.score_out, 1)
+
+        self.convs_test = nn.Conv1d(channels, channels, 1)
+        self.bns_test   = nn.BatchNorm1d(channels)
+        self.dp_test    = nn.Dropout(0.5)
         
     def forward(self, data_dict):
         # 
@@ -63,27 +67,30 @@ class EncoderModule(nn.Module):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x1 = self.sAttn1(x)
-        x2 = self.sAttn2(x1)
-        x3 = self.sAttn3(x2)
-        x4 = self.sAttn4(x3)
+        # x2 = self.sAttn2(x1)
+        # x3 = self.sAttn3(x2)
+        # x4 = self.sAttn4(x3)
 
         # Fuse output of each four attention layer
-        x = torch.cat((x, x1, x2, x3, x4), dim=1)
-        x = self.conv_fuse(x)
+        # x = torch.cat((x, x1, x2, x3, x4), dim=1)
+        # x = self.conv_fuse(x)
         
-        x_max = torch.max(x, 2)[0]
-        x_avg = torch.mean(x, 2)
-        x_max_feature = x_max.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
-        x_avg_feature = x_avg.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
-        x_global_feature = torch.cat((x_max_feature, x_avg_feature), 1) # 1024 
-        x = torch.cat((x, x_global_feature), 1) # 1024 * 3 
+        # x_max = torch.max(x, 2)[0]
+        # x_avg = torch.mean(x, 2)
+        # x_max_feature = x_max.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
+        # x_avg_feature = x_avg.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
+        # x_global_feature = torch.cat((x_max_feature, x_avg_feature), 1) # 1024 
+        # x = torch.cat((x, x_global_feature), 1) # 1024 * 3 
 
-        #Feed forward
-        x = F.leaky_relu(self.bns1(self.convs1(x)), negative_slope=0.2)
-        x = x + self.dp1(x)
-        x = F.leaky_relu(self.bns2(self.convs2(x)), negative_slope=0.2)
-        x = x + self.dp2(x)
-        x = self.bns3(x)
+        # #Feed forward
+        # x = F.leaky_relu(self.bns1(self.convs1(x)), negative_slope=0.2)
+        # x = x + self.dp1(x)
+        # x = F.leaky_relu(self.bns2(self.convs2(x)), negative_slope=0.2)
+        # x = x + self.dp2(x)
+        # x = self.bns3(x)
+
+        x = x = F.leaky_relu(self.bns_test(self.convs_test(x1)), negative_slope=0.2)
+        x = x + self.dp_test(x)
 
         data_dict["memory"] = x
         
