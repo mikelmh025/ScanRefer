@@ -33,12 +33,22 @@ class DecoderModule(nn.Module):
 
         # self.bbox_embed = MLP(d_model, d_model, 3+3, 3)
         # self.class_embed = nn.Linear(d_model, num_class)
-        self.bbox_embed_full = nn.Conv1d(d_model, self.score_out, 1)
+        # self.bbox_embed_full = nn.Conv1d(d_model, self.score_out, 1)
+
+        self.bbox_embed_full = nn.Sequential(
+            nn.Conv1d(d_model,d_model,1, bias=False),
+            nn.BatchNorm1d(d_model),
+            nn.ReLU(),
+            nn.Conv1d(d_model,d_model,1, bias=False),
+            nn.BatchNorm1d(d_model),
+            nn.ReLU(),
+            nn.Conv1d(d_model,self.score_out,1)
+        )
                 
 
     def forward(self, data_dict):
         # query_embed is trainable
-        memory = data_dict["memory"].permute(2,0,1)
+        memory = data_dict["memory"].permute(1,0,2)
         query_embed = self.query_embed.weight #torch.rand(100,2,256).cuda() # ( Dim, Batch, # decode slots)
         query_embed = query_embed.unsqueeze(1).repeat(1, memory.shape[1], 1)
         output = torch.zeros_like(query_embed).cuda()

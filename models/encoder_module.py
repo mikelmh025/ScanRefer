@@ -9,7 +9,7 @@ class EncoderModule(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling,
     channels=256):
         super().__init__() 
-
+        channels = 1024
         # From Proposal module
         self.num_class = num_class 
         self.num_heading_bin = num_heading_bin
@@ -59,7 +59,11 @@ class EncoderModule(nn.Module):
         # b * npoint, c, nsample 
         # permute reshape
 
-        x = data_dict['sa4_features']
+        # xyz = data_dict["fp2_xyz"]
+        # features = data_dict["fp2_features"]
+
+        x = data_dict["fp2_features"]#data_dict['sa4_features']
+        x = x.transpose(1, 2)
         batch_size, _, N = x.size()
 
         # B, D, N

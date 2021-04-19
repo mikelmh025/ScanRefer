@@ -581,7 +581,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         loss: pytorch scalar tensor
         data_dict: dict
     """
-    use_matcher = True
+    use_matcher = False
     if use_matcher:
         #Loss from deter
         data_dict = matcher(data_dict)
