@@ -48,7 +48,9 @@ class ProposalModule(nn.Module):
             nn.Conv1d(128,2+3+num_heading_bin*2+num_size_cluster*4+self.num_class,1)
         )
 
-        self.conv_RAgree = nn.Conv1d(self.seed_feat_dim, 128, 1)
+        self.conv_RAgree_xyz = nn.Conv1d(self.seed_feat_dim, 128, 1)
+        self.conv_RAgree_feature = nn.Conv1d(self.seed_feat_dim, 128, 1)
+
         self.sAttn1 = SA_Layer(128)
         self.sAttn2 = SA_Layer(128)
         self.sAttn3 = SA_Layer(128)
@@ -80,6 +82,8 @@ class ProposalModule(nn.Module):
         # xyz, features, fps_inds = self.vote_aggregation(xyz, features)
 
         # Add in Encoder self attention 
+        # xyz = self.conv_RAgree_xyz(xyz)
+        features = self.conv_RAgree_feature(features)
         x = features
         batch_size, _, N = x.size()
         x1 = self.sAttn1(x)
