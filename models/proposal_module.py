@@ -112,7 +112,7 @@ class ProposalModule(nn.Module):
         features = x
         ###########
         
-        sample_inds = fps_inds
+        # sample_inds = fps_inds
 
         data_dict['aggregated_vote_xyz'] = xyz # (batch_size, num_proposal, 3)
         data_dict['aggregated_vote_features'] = features.permute(0, 2, 1).contiguous() # (batch_size, num_proposal, 128)
