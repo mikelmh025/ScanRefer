@@ -84,7 +84,7 @@ class ProposalModule(nn.Module):
         x3 = self.sAttn3(x2)
         x4 = self.sAttn4(x3)
 
-        Fuse output of each four attention layer
+        # Fuse output of each four attention layer
         x = torch.cat((x, x1, x2, x3, x4), dim=1)
         x = self.conv_fuse(x)
         
