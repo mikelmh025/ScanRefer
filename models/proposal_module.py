@@ -79,6 +79,7 @@ class ProposalModule(nn.Module):
 
         # Add in Encoder self attention 
         x = features
+        batch_size, _, N = x.size()
         x1 = self.sAttn1(x)
         x2 = self.sAttn2(x1)
         x3 = self.sAttn3(x2)
