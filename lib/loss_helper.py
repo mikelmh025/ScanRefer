@@ -570,7 +570,7 @@ def _get_src_permutation_idx(indices):
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
-def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False,mask_aug=False,use_matcher=False):
+def get_loss(data_dict, config, detection=True, reference=True, use_lang_classifier=False,mask_aug=False,use_matcher=False,phase='Train'):
     """ Loss functions
 
     Args:
@@ -602,7 +602,9 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         # Vote loss
         # vote_loss = compute_vote_loss(data_dict)
         # Obj loss
-        data_dict = matcher(data_dict)
+        # if phase !='Train': 
+        data_dict = matcher(data_dict)# Don't eval during train just for speed things up
+
         objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
         num_proposal = objectness_label.shape[1]
         total_num_proposal = objectness_label.shape[0]*objectness_label.shape[1]

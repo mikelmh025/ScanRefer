@@ -313,7 +313,7 @@ class Solver():
         self._running_log["loss"].backward()
         self.optimizer.step()
 
-    def _compute_loss(self, data_dict,epoch_id):
+    def _compute_loss(self, data_dict,epoch_id,phase):
 
         self.use_matcher = True #if epoch_id > 5 else False
 
@@ -324,7 +324,8 @@ class Solver():
             reference=self.reference, 
             mask_aug=self.mask_aug,
             use_lang_classifier=self.use_lang_classifier,
-            use_matcher=self.use_matcher
+            use_matcher=self.use_matcher,
+            phase=phase
         )
 
         # dump
@@ -342,12 +343,13 @@ class Solver():
         self._running_log["loss"] = data_dict["loss"]
 
 
-    def _eval(self, data_dict):
+    def _eval(self, data_dict,phase):
         if self.use_matcher == False: return
         
         data_dict = get_eval_cu(
             data=data_dict,
-            config=self.config
+            config=self.config,
+            phase=phase
         )
 
         # dump
@@ -418,7 +420,7 @@ class Solver():
                 # forward
                 start = time.time()
                 data_dict = self._forward(data_dict)
-                self._compute_loss(data_dict,epoch_id)
+                self._compute_loss(data_dict,epoch_id,phase)
                 self.log[phase]["forward"].append(time.time() - start)
 
                 # backward
@@ -429,7 +431,7 @@ class Solver():
             
             # eval
             start = time.time()
-            self._eval(data_dict)
+            self._eval(data_dict,phase)
             self.log[phase]["eval"].append(time.time() - start)
 
             # record log

@@ -43,7 +43,13 @@ def construct_bbox_corners(center, box_size):
 
     return corners_3d
 
-def get_eval_cu(data,config):
+def get_eval_cu(data,config,phase):
+
+    # if phase == "train":
+    #     data["eval_iou25"] = 0
+    #     data["eval_iou5"] = 0
+    #     return data
+
     # predicted box
     pred_center = data['center'].detach().cpu().numpy()
     # pred_size = data['size'].detach().cpu().numpy()

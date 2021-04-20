@@ -47,6 +47,23 @@ class ProposalModule(nn.Module):
             nn.ReLU(),
             nn.Conv1d(128,2+3+num_heading_bin*2+num_size_cluster*4+self.num_class,1)
         )
+        self.sAttn1 = SA_Layer(128)
+        self.sAttn2 = SA_Layer(128)
+        self.sAttn3 = SA_Layer(128)
+        self.sAttn4 = SA_Layer(128)
+        self.conv_fuse = nn.Sequential(nn.Conv1d(128*5, 128*4, kernel_size=1, bias=False),
+                                   nn.BatchNorm1d(128*4),
+                                   nn.LeakyReLU(0.2))
+        
+        self.convs1 = nn.Conv1d(128*4*3, 128*2, 1)
+        self.bns1 = nn.BatchNorm1d(128*2)
+        self.dp1 = nn.Dropout(0.5)
+
+        self.convs2 = nn.Conv1d(128*2, 128, 1)
+        self.bns2 = nn.BatchNorm1d(128)
+        self.dp2 = nn.Dropout(0.5)
+        
+        self.bns3 = nn.BatchNorm1d(128)  
 
     def forward(self, xyz, features, data_dict):
         """
@@ -59,6 +76,34 @@ class ProposalModule(nn.Module):
 
         # Farthest point sampling (FPS) on votes
         xyz, features, fps_inds = self.vote_aggregation(xyz, features)
+
+        # Add in Encoder self attention 
+        x = features
+        x1 = self.sAttn1(x)
+        x2 = self.sAttn2(x1)
+        x3 = self.sAttn3(x2)
+        x4 = self.sAttn4(x3)
+
+        Fuse output of each four attention layer
+        x = torch.cat((x, x1, x2, x3, x4), dim=1)
+        x = self.conv_fuse(x)
+        
+        x_max = torch.max(x, 2)[0]
+        x_avg = torch.mean(x, 2)
+        x_max_feature = x_max.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
+        x_avg_feature = x_avg.view(batch_size, -1).unsqueeze(-1).repeat(1, 1, N)
+        x_global_feature = torch.cat((x_max_feature, x_avg_feature), 1) # 1024 
+        x = torch.cat((x, x_global_feature), 1) # 1024 * 3 
+
+        #Feed forward
+        x = F.leaky_relu(self.bns1(self.convs1(x)), negative_slope=0.2)
+        x = x + self.dp1(x)
+        x = F.leaky_relu(self.bns2(self.convs2(x)), negative_slope=0.2)
+        x = x + self.dp2(x)
+        x = self.bns3(x)
+
+        features = x
+        ###########
         
         sample_inds = fps_inds
 
@@ -107,3 +152,33 @@ class ProposalModule(nn.Module):
 
         return data_dict
 
+class SA_Layer(nn.Module):
+    def __init__(self, channels):
+        super(SA_Layer, self).__init__()
+        self.q_conv = nn.Conv1d(channels, channels // 4, 1, bias=False)
+        self.k_conv = nn.Conv1d(channels, channels // 4, 1, bias=False)
+        self.q_conv.weight = self.k_conv.weight
+        self.q_conv.bias = self.k_conv.bias
+
+        self.v_conv = nn.Conv1d(channels, channels, 1)
+        self.trans_conv = nn.Conv1d(channels, channels, 1)
+        self.after_norm = nn.BatchNorm1d(channels)
+        self.act = nn.ReLU()
+        self.softmax = nn.Softmax(dim=-1)
+
+    def forward(self, x):
+        # b, n, c
+        x_q = self.q_conv(x).permute(0, 2, 1)
+        # b, c, n
+        x_k = self.k_conv(x)
+        x_v = self.v_conv(x)
+        # b, n, n
+        energy = torch.bmm(x_q, x_k)
+
+        attention = self.softmax(energy)
+        attention = attention / (1e-9 + attention.sum(dim=1, keepdim=True))
+        # b, c, n
+        x_r = torch.bmm(x_v, attention)
+        x_r = self.act(self.after_norm(self.trans_conv(x - x_r)))
+        x = x + x_r
+        return x

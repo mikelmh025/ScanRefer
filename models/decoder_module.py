@@ -25,7 +25,7 @@ class DecoderModule(nn.Module):
         # self.norm = norm
         # self.return_intermediate = return_intermediate
         d_model, nhead, dim_feedforward, dropout, activation = 256, 8, 2048, 0.1, "relu"
-        num_layers = 1
+        num_layers = 2
         decoder_layer = TransformerDecoderLayer(d_model, nhead, dim_feedforward, dropout, activation)
         self.layers = _get_clones(decoder_layer, num_layers)
         self.norm = nn.LayerNorm(d_model)

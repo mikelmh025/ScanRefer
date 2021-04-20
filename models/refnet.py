@@ -123,28 +123,31 @@ class RefNet(nn.Module):
 
         
         data_dict = self.backbone_net(data_dict)
-        data_dict = self.encoder(data_dict)
-        data_dict = self.decoder(data_dict)
+        
 
 
                 
-        # # --------- HOUGH VOTING ---------
-        # xyz = data_dict["fp2_xyz"]
-        # features = data_dict["fp2_features"]
-        # data_dict["seed_inds"] = data_dict["fp2_inds"]
-        # data_dict["seed_xyz"] = xyz
-        # data_dict["seed_features"] = features
+        # --------- HOUGH VOTING ---------
+        xyz = data_dict["fp2_xyz"]
+        features = data_dict["fp2_features"]
+        data_dict["seed_inds"] = data_dict["fp2_inds"]
+        data_dict["seed_xyz"] = xyz
+        data_dict["seed_features"] = features
 
         
         
-        # xyz, features = self.vgen(xyz, features)
-        # features_norm = torch.norm(features, p=2, dim=1)
-        # features = features.div(features_norm.unsqueeze(1))
-        # data_dict["vote_xyz"] = xyz
-        # data_dict["vote_features"] = features
+        xyz, features = self.vgen(xyz, features)
+        features_norm = torch.norm(features, p=2, dim=1)
+        features = features.div(features_norm.unsqueeze(1))
+        data_dict["vote_xyz"] = xyz
+        data_dict["vote_features"] = features
 
-        # # --------- PROPOSAL GENERATION ---------
-        # data_dict = self.proposal(xyz, features, data_dict)
+        # --------- PROPOSAL GENERATION ---------   
+        data_dict = self.proposal(xyz, features, data_dict)
+        # data_dict = self.encoder(data_dict)
+        # data_dict = self.decoder(data_dict)
+
+        
 
         
 

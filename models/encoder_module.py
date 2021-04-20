@@ -61,8 +61,10 @@ class EncoderModule(nn.Module):
 
         # xyz = data_dict["fp2_xyz"]
         # features = data_dict["fp2_features"]
+        # data_dict["vote_xyz"] = xyz
+        # data_dict["vote_features"] = features
 
-        x = data_dict["fp2_features"]#data_dict['sa4_features']
+        x = data_dict["vote_features"] #data_dict["fp2_features"] #data_dict['sa4_features']
         x = x.transpose(1, 2)
         batch_size, _, N = x.size()
 
