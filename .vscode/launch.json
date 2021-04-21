@@ -84,7 +84,7 @@
                 "--devices",
                 "0",
                 "--batch_size",
-                "6",
+                "2",
                 "--cp_aug",
                 "0",
                 "--num_workers",

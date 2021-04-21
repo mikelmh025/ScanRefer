@@ -77,7 +77,7 @@ class HungarianMatcher(nn.Module):
         # Compute the classification cost. Contrary to the loss, we don't use the NLL,
         # but approximate it in 1 - proba[target class].
         # The 1 is a constant that doesn't change the matching, it can be ommitted.
-        cost_class = -out_prob[:, tgt_ids].cpu()
+        cost_class = -out_prob[:, tgt_ids].cuda()#.cpu()
 
         # flat_out_bbox = out_bbox.reshape(out_bbox.shape[0],-1)
         # flat_out_bbox = torch.Tensor(flat_out_bbox)
@@ -89,27 +89,27 @@ class HungarianMatcher(nn.Module):
 
         # Use center loss to replace the box loss in Deter matcher
         pred_center = pred_center.reshape(-1,pred_center.shape[-1])
-        pred_center = torch.Tensor(pred_center)
-        gt_center   = torch.Tensor(gt_center)
-        cost_bbox = torch.cdist(pred_center,gt_center, p=1).cpu()
+        pred_center = torch.Tensor(pred_center).cuda()
+        gt_center   = torch.Tensor(gt_center).cuda()
+        cost_bbox = torch.cdist(pred_center,gt_center, p=1)#.cpu()
 
 
         # Compute the giou cost betwen boxes
         cost_giou = -generalized_box_iou(out_bbox,gt_corner)
-        cost_giou = torch.tensor(cost_giou)
+        cost_giou = torch.tensor(cost_giou).cuda()
 
         # Final cost matrix
         C = self.cost_bbox * cost_bbox + self.cost_giou * cost_giou + self.cost_class * cost_class 
-        C = C.view(bs, num_queries, -1).cpu()
+        C = C.view(bs, num_queries, -1)#.cpu()
 
-        mean_cost_bbox = torch.mean(torch.abs(cost_bbox))
-        mean_cost_giou = torch.mean(torch.abs(cost_giou))
-        mean_cost_class = torch.mean(torch.abs(cost_class)) 
-        C_test               = torch.mean(torch.abs(C))
+        # mean_cost_bbox = torch.mean(torch.abs(cost_bbox))
+        # mean_cost_giou = torch.mean(torch.abs(cost_giou))
+        # mean_cost_class = torch.mean(torch.abs(cost_class)) 
+        # C_test               = torch.mean(torch.abs(C))
 
         # sizes = gt_num_bbox
         sizes = [gt_num_bbox[i] for i in range (gt_num_bbox.shape[0])]
-        indices = [linear_sum_assignment(c[i]) for i, c in enumerate(C.split(sizes, -1))]
+        indices = [linear_sum_assignment(c[i].cpu()) for i, c in enumerate(C.split(sizes, -1))]
         data_dict["match_indices_list"] = [(torch.as_tensor(i, dtype=torch.int64), torch.as_tensor(j, dtype=torch.int64)) for i, j in indices]
         
         # idx = self._get_src_permutation_idx(data_dict["match_indices_list"])
