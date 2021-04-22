@@ -12,12 +12,12 @@ class TransformerModule(nn.Module):
             "attention_probs_dropout_prob": 0.1,
             "hidden_act": "gelu",
             "hidden_dropout_prob": 0.1,
-            "hidden_size": 512,
+            "hidden_size": 256,
             "initializer_range": 0.02,
             "intermediate_size": 3072,
-            "max_position_embeddings": 512,
+            "max_position_embeddings": 1500,
             "num_attention_heads": 8,
-            "num_hidden_layers": 12,
+            "num_hidden_layers": 2,
             "type_vocab_size": 2,
             "vocab_size": 28996
             }
@@ -33,12 +33,12 @@ class TransformerModule(nn.Module):
         Returns:
         
         """
-        zeros = torch.zeros((data_dict["selfAttn_features"].shape[0],data_dict["selfAttn_features"].shape[2])).cuda()
-        ones = torch.ones((data_dict["bert_out_hidden"].shape[0],data_dict["bert_out_hidden"].shape[2])).cuda()
+        zeros = torch.zeros((data_dict["aggregated_vote_features"].shape[0],data_dict["aggregated_vote_features"].shape[1])).cuda()
+        ones = torch.ones((data_dict["bert_out_hidden"].shape[0],data_dict["bert_out_hidden"].shape[1])).cuda()
 
 
         all_encoder_layers = []
-        hidden_states = data_dict["comebine"].transpose(1,2)            # [B, Dim, Size ]
+        hidden_states = data_dict["comebine"]#.transpose(1,2)            # [B, Dim, Size ]
         attention_mask = torch.cat([zeros,ones],dim=1)                  # [B, Size]
 
         # compute self-attention mask

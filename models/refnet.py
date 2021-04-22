@@ -16,6 +16,7 @@ from models.lang_module import LangModule
 from models.match_module import MatchModule
 
 from models.transformer_module import TransformerModule
+from models.combine_module import CombineModule
 from transformers import AutoModel, AutoTokenizer, BertTokenizer
 from transformers import BertModel
 
@@ -49,6 +50,7 @@ class RefNet(nn.Module):
         self.backbone_net = Pointnet2Backbone(input_feature_dim=self.input_feature_dim,attn=self.attn)
         self.encoder = EncoderModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
         self.decoder = DecoderModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
+        self.combiner = CombineModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
         # Hough voting
         self.vgen = VotingModule(self.vote_factor, 256)
@@ -67,10 +69,15 @@ class RefNet(nn.Module):
             self.match = MatchModule(num_proposals=num_proposal, lang_size=(1 + int(self.use_bidir)) * hidden_size,mask_aug=self.mask_aug)
 
         # self.model_bert = BertModel.from_pretrained('bert-base-cased')
-        # self.Linear_bert_out = nn.Conv1d(768, 512, kernel_size=1, bias=False)
-        # self.Linear_bert_out_pool = nn.Conv1d(768, 512, kernel_size=1, bias=False)
+        self.Linear_bert_out1 = nn.Conv1d(768, 512, kernel_size=1, bias=False)
+        self.Linear_bert_out2 = nn.Conv1d(512, 512, kernel_size=1, bias=False)
+        self.Linear_bert_out3 = nn.Conv1d(512, 256, kernel_size=1, bias=False)
 
-        # self.TransformerModule = TransformerModule()
+        self.Linear_bert_out_pool1 = nn.Conv1d(768, 512, kernel_size=1, bias=False)
+        self.Linear_bert_out_pool2 = nn.Conv1d(512, 512, kernel_size=1, bias=False)
+        self.Linear_bert_out_pool3 = nn.Conv1d(512, 256, kernel_size=1, bias=False)
+
+        self.TransformerModule = TransformerModule()
         
 
     def forward(self, data_dict):
@@ -107,10 +114,20 @@ class RefNet(nn.Module):
             # bert_in["attention_mask"] = data_dict["bertTo_mask"].squeeze(1)
             # with torch.no_grad():
             #     bert_out = self.model_bert(**bert_in)
+
             # data_dict["bert_hidden"] = data_dict["bert_hidden"].squeeze(1)
             # data_dict["bert_poolar"] = data_dict["bert_poolar"].squeeze(1)
-            # data_dict["bert_out_hidden"] = self.Linear_bert_out(data_dict["bert_hidden"].transpose(1,2))
-            # data_dict["bert_out_pool"] = self.Linear_bert_out_pool(data_dict["bert_poolar"].unsqueeze(2)).squeeze(2)
+            
+            # bert_out_hidden = self.Linear_bert_out1(data_dict["bert_hidden"].transpose(1,2))
+            # bert_out_hidden = self.Linear_bert_out2(bert_out_hidden)
+            # bert_out_hidden = self.Linear_bert_out3(bert_out_hidden).transpose(2,1)
+            # data_dict["bert_out_hidden"] = bert_out_hidden
+
+            
+            # bert_out_pool = self.Linear_bert_out_pool1(data_dict["bert_poolar"].unsqueeze(2))
+            # bert_out_pool = self.Linear_bert_out_pool2(bert_out_pool)
+            # bert_out_pool = self.Linear_bert_out_pool3(bert_out_pool).squeeze(2)
+            # data_dict["bert_out_pool"] = bert_out_pool
 
                 
             # data_dict = self.lang(data_dict)
@@ -147,18 +164,13 @@ class RefNet(nn.Module):
         # --------- PROPOSAL GENERATION ---------   
         data_dict = self.proposal(xyz, features, data_dict)
         # data_dict = self.encoder(data_dict)
-        # data_dict = self.decoder(data_dict)
+        data_dict = self.decoder(data_dict)
 
         
+        # f = data_dict['aggregated_vote_features']
+        # b = data_dict["bert_out_hidden"]
 
-        
-
-        
-        
-
-
-        # data_dict["comebine"] = torch.cat([data_dict["selfAttn_features"],data_dict["bert_out_hidden"]],dim=2)
-
+        # data_dict = self.combiner(data_dict)
         # data_dict = self.TransformerModule(data_dict)
 
 

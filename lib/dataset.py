@@ -602,11 +602,11 @@ class ScannetReferenceDataset(Dataset):
         if self.debug == False:
             if self.split == "train" :  bert_emb = torch.load("data/bert_train_full.p")
             else: bert_emb = torch.load("data/bert_val_full.p")
-            print("Ladoing bert embed debug status: ", self.debug)
+            print("Loading bert embed debug status: ", self.debug)
         else:
             if self.split == "train" :  bert_emb = torch.load("data/bert_train_debug.p")
             else: bert_emb = torch.load("data/bert_val_debug.p")
-            print("Ladoing bert embed debug status: ", self.debug)
+            print("Loading bert embed debug status: ", self.debug)
 
         return bert_emb
 

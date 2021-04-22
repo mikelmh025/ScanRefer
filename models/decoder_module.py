@@ -48,7 +48,7 @@ class DecoderModule(nn.Module):
 
     def forward(self, data_dict):
         # query_embed is trainable
-        memory = data_dict["memory"].permute(1,0,2)
+        memory = data_dict["memory"].permute(2,0,1)
         query_embed = self.query_embed.weight #torch.rand(100,2,256).cuda() # ( Dim, Batch, # decode slots)
         query_embed = query_embed.unsqueeze(1).repeat(1, memory.shape[1], 1)
         output = torch.zeros_like(query_embed).cuda()
@@ -68,6 +68,7 @@ class DecoderModule(nn.Module):
         # outputs_class = self.class_embed(hs)
         outputs_bbox = self.bbox_embed_full(hs[-1].transpose(1,2))
 
+        data_dict['aggregated_vote_features'] = outputs_bbox#[-1]
         data_dict["selfAttn_features"] = outputs_bbox#[-1]
         # data_dict = self.decode_scores_new(outputs_bbox[-1], outputs_class[-1], data_dict)
         data_dict = self.decode_scores(outputs_bbox, data_dict, self.num_class, self.num_heading_bin, self.num_size_cluster, self.mean_size_arr)

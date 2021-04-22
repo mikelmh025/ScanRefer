@@ -603,7 +603,7 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         # vote_loss = compute_vote_loss(data_dict)
         # Obj loss
         # if phase !='Train': 
-        data_dict = matcher(data_dict)# Don't eval during train just for speed things up
+        # data_dict = matcher(data_dict)# Don't eval during train just for speed things up
 
         objectness_loss, objectness_label, objectness_mask, object_assignment = compute_objectness_loss(data_dict)
         num_proposal = objectness_label.shape[1]

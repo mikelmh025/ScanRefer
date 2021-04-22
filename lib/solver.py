@@ -343,13 +343,14 @@ class Solver():
         self._running_log["loss"] = data_dict["loss"]
 
 
-    def _eval(self, data_dict,phase):
+    def _eval(self, data_dict,phase,process_eval):
         if self.use_matcher == False: return
         
         data_dict = get_eval_cu(
             data=data_dict,
             config=self.config,
-            phase=phase
+            phase=phase,
+            process_eval=process_eval
         )
 
         # dump
@@ -431,7 +432,11 @@ class Solver():
             
             # eval
             start = time.time()
-            self._eval(data_dict,phase)
+            if (self._global_iter_id % (self.val_step/100)) == 0 or phase == "val":
+                self._eval(data_dict,phase,process_eval=True)
+            else:
+                self._eval(data_dict,phase,process_eval=False)
+
             self.log[phase]["eval"].append(time.time() - start)
 
             # record log
@@ -451,8 +456,9 @@ class Solver():
             # self.log[phase]["obj_acc"].append(self._running_log["obj_acc"])
             # self.log[phase]["pos_ratio"].append(self._running_log["pos_ratio"])
             # self.log[phase]["neg_ratio"].append(self._running_log["neg_ratio"])
-            self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
-            self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])                
+            if self._running_log["iou_rate_0.25"] != 0:
+                self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
+                self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])                
 
             # report
             if phase == "train":
@@ -465,7 +471,7 @@ class Solver():
                     self._train_report(epoch_id)
 
                 # evaluation
-                if self._global_iter_id % self.val_step == 0:
+                if (self._global_iter_id+1) % self.val_step == 0:
                     print("evaluating...")
                     # val
                     self._feed(self.dataloader["val"], "val", epoch_id)

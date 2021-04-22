@@ -25,49 +25,49 @@ class ProposalModule(nn.Module):
         self.sampling = sampling
         self.seed_feat_dim = seed_feat_dim
 
-        # Vote clustering
-        self.vote_aggregation = PointnetSAModuleVotes( 
-            npoint=self.num_proposal,
-            radius=0.3,
-            nsample=16,
-            mlp=[self.seed_feat_dim, 128, 128, 128],
-            use_xyz=True,
-            normalize_xyz=True
-        )
+        # # Vote clustering
+        # self.vote_aggregation = PointnetSAModuleVotes( 
+        #     npoint=self.num_proposal,
+        #     radius=0.3,
+        #     nsample=16,
+        #     mlp=[self.seed_feat_dim, 128, 128, 128],
+        #     use_xyz=True,
+        #     normalize_xyz=True
+        # )
             
         # Object proposal/detection
         # Objectness scores (2), center residual (3),
         # heading class+residual (num_heading_bin*2), size class+residual(num_size_cluster*4)
         self.proposal = nn.Sequential(
-            nn.Conv1d(128,128,1, bias=False),
-            nn.BatchNorm1d(128),
+            nn.Conv1d(self.seed_feat_dim,self.seed_feat_dim,1, bias=False),
+            nn.BatchNorm1d(self.seed_feat_dim),
             nn.ReLU(),
-            nn.Conv1d(128,128,1, bias=False),
-            nn.BatchNorm1d(128),
+            nn.Conv1d(self.seed_feat_dim,self.seed_feat_dim,1, bias=False),
+            nn.BatchNorm1d(self.seed_feat_dim),
             nn.ReLU(),
-            nn.Conv1d(128,2+3+num_heading_bin*2+num_size_cluster*4+self.num_class,1)
+            nn.Conv1d(self.seed_feat_dim,2+3+num_heading_bin*2+num_size_cluster*4+self.num_class,1)
         )
 
-        self.conv_RAgree_xyz = nn.Conv1d(self.seed_feat_dim, 128, 1)
-        self.conv_RAgree_feature = nn.Conv1d(self.seed_feat_dim, 128, 1)
+        # self.conv_RAgree_xyz = nn.Conv1d(self.seed_feat_dim, 128, 1)
+        # self.conv_RAgree_feature = nn.Conv1d(self.seed_feat_dim, 128, 1)
 
-        self.sAttn1 = SA_Layer(128)
-        self.sAttn2 = SA_Layer(128)
-        self.sAttn3 = SA_Layer(128)
-        self.sAttn4 = SA_Layer(128)
-        self.conv_fuse = nn.Sequential(nn.Conv1d(128*5, 128*4, kernel_size=1, bias=False),
-                                   nn.BatchNorm1d(128*4),
+        self.sAttn1 = SA_Layer(self.seed_feat_dim)
+        self.sAttn2 = SA_Layer(self.seed_feat_dim)
+        self.sAttn3 = SA_Layer(self.seed_feat_dim)
+        self.sAttn4 = SA_Layer(self.seed_feat_dim)
+        self.conv_fuse = nn.Sequential(nn.Conv1d(self.seed_feat_dim*5, self.seed_feat_dim*4, kernel_size=1, bias=False),
+                                   nn.BatchNorm1d(self.seed_feat_dim*4),
                                    nn.LeakyReLU(0.2))
         
-        self.convs1 = nn.Conv1d(128*4*3, 128*2, 1)
-        self.bns1 = nn.BatchNorm1d(128*2)
+        self.convs1 = nn.Conv1d(self.seed_feat_dim*4*3, self.seed_feat_dim*2, 1)
+        self.bns1 = nn.BatchNorm1d(self.seed_feat_dim*2)
         self.dp1 = nn.Dropout(0.5)
 
-        self.convs2 = nn.Conv1d(128*2, 128, 1)
-        self.bns2 = nn.BatchNorm1d(128)
+        self.convs2 = nn.Conv1d(self.seed_feat_dim*2, self.seed_feat_dim, 1)
+        self.bns2 = nn.BatchNorm1d(self.seed_feat_dim)
         self.dp2 = nn.Dropout(0.5)
         
-        self.bns3 = nn.BatchNorm1d(128)  
+        self.bns3 = nn.BatchNorm1d(self.seed_feat_dim)  
 
     def forward(self, xyz, features, data_dict):
         """
@@ -83,7 +83,7 @@ class ProposalModule(nn.Module):
 
         # Add in Encoder self attention 
         # xyz = self.conv_RAgree_xyz(xyz)
-        features = self.conv_RAgree_feature(features)
+        # features = self.conv_RAgree_feature(features)   # changes the channels
         x = features
         batch_size, _, N = x.size()
         x1 = self.sAttn1(x)
@@ -110,6 +110,10 @@ class ProposalModule(nn.Module):
         x = self.bns3(x)
 
         features = x
+        data_dict["memory"] = x
+        data_dict['aggregated_vote_xyz'] = xyz
+        return data_dict
+
         ###########
         
         # sample_inds = fps_inds

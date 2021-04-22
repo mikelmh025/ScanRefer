@@ -16,6 +16,10 @@ from lib.loss import SoftmaxRankingLoss
 from utils.box_util import get_3d_box, get_3d_box_batch, box3d_iou, get_3d_box_batch_no_heading
 import scipy.optimize
 
+from models.matcher import build_matcher
+matcher = build_matcher()
+
+
 def eval_ref_one_sample(pred_bbox, gt_bbox):
     """ Evaluate one reference prediction
 
@@ -43,12 +47,15 @@ def construct_bbox_corners(center, box_size):
 
     return corners_3d
 
-def get_eval_cu(data,config,phase):
+def get_eval_cu(data,config,phase,process_eval):
 
-    # if phase == "train":
-    #     data["eval_iou25"] = 0
-    #     data["eval_iou5"] = 0
-    #     return data
+
+    if process_eval == False:
+        data["eval_iou25"] = 0
+        data["eval_iou5"] = 0
+        return data
+
+    data = matcher(data)
 
     # predicted box
     pred_center = data['center'].detach().cpu().numpy()
