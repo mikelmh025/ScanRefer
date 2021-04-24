@@ -614,6 +614,33 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         data_dict['pos_ratio'] = torch.sum(objectness_label.float().cuda())/float(total_num_proposal)
         data_dict['neg_ratio'] = torch.sum(objectness_mask.float())/float(total_num_proposal) - data_dict['pos_ratio']
 
+        if reference:
+            # Reference loss
+            ref_loss, mask_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config,mask_aug)
+            # ref_loss = torch.zeros(1)[0].cuda()
+            # contr_loss = torch.zeros(1)[0].cuda()
+            # cluster_labels = objectness_label.new_zeros(objectness_label.shape).cuda()
+            
+            data_dict["cluster_labels"] = cluster_labels
+            data_dict["ref_loss"] = ref_loss
+            data_dict["contr_loss"] = contr_loss
+            data_dict["mask_loss"] = mask_loss
+        else:
+            # # Reference loss
+            # ref_loss, contr_loss, _, cluster_labels = compute_reference_loss(data_dict, config)
+            # data_dict["cluster_labels"] = cluster_labels
+            data_dict["cluster_labels"] = objectness_label.new_zeros(objectness_label.shape).cuda()
+            data_dict["cluster_ref"] = objectness_label.new_zeros(objectness_label.shape).float().cuda()
+
+            # store
+            data_dict["ref_loss"] = torch.zeros(1)[0].cuda()
+            # data_dict["contr_loss"] = torch.zeros(1)[0].cuda()
+
+        # if reference and use_lang_classifier:
+        #     data_dict["lang_loss"] = compute_lang_classification_loss(data_dict)
+        # else:
+        #     data_dict["lang_loss"] = torch.zeros(1)[0].cuda()
+
         # Box loss and sem cls loss
         center_loss, heading_cls_loss, heading_reg_loss, size_cls_loss, size_reg_loss, sem_cls_loss = compute_box_and_sem_cls_loss(data_dict, config)
         box_loss = center_loss + 0.1*heading_cls_loss + heading_reg_loss + 0.1*size_cls_loss + size_reg_loss
@@ -631,13 +658,13 @@ def get_loss(data_dict, config, detection=True, reference=True, use_lang_classif
         match_box_loss, giou_loss = box_loss*0, box_loss* 0
         ce_loss , class_error, card_err_all, card_err_matched = box_loss*0, box_loss*0, box_loss*0, box_loss*0
 
-        loss =  0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss'] 
+        loss =  0.5*data_dict['objectness_loss'] + data_dict['box_loss'] + 0.1*data_dict['sem_cls_loss']  + 0.1*data_dict["ref_loss"]
         loss *= 10 # amplify
 
         
         data_dict['giou_loss'] = objectness_loss  # TODO: Change objectness loss name to giou loss
         data_dict['ce_loss'] = sem_cls_loss
-        data_dict['class_error'] = class_error  # No grad
+        data_dict['class_error'] = data_dict["ref_loss"]#class_error  # No grad
         data_dict['card_err_all'] = card_err_all
         data_dict['card_err_matched'] = card_err_matched
         

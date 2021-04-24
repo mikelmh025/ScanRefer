@@ -110,9 +110,9 @@ class ProposalModule(nn.Module):
         x = self.bns3(x)
 
         features = x
-        data_dict["memory"] = x
-        data_dict['aggregated_vote_xyz'] = xyz
-        return data_dict
+        # data_dict["memory"] = x
+        # data_dict['aggregated_vote_xyz'] = xyz
+        # return data_dict
 
         ###########
         

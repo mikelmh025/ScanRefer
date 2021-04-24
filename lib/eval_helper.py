@@ -273,7 +273,7 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         data_dict: dict
     """
 
-    batch_size, num_words, _ = data_dict["lang_feat"].shape
+    batch_size, num_words, _ = data_dict["objectness_scores"].shape
 
 
     objectness_preds_batch = torch.argmax(data_dict['objectness_scores'], 2).long()

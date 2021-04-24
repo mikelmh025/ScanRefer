@@ -88,7 +88,8 @@
                 "--cp_aug",
                 "0",
                 "--num_workers",
-                "1"
+                "1",
+                "--bert_emb"
             ]
         },
         {
