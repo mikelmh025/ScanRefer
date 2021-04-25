@@ -362,12 +362,12 @@ class Solver():
             reference=True
         )
         
-        data_dict = get_eval_cu(
-            data=data_dict,
-            config=self.config,
-            phase=phase,
-            process_eval=process_eval
-        )
+        # data_dict = get_eval_cu(
+        #     data=data_dict,
+        #     config=self.config,
+        #     phase=phase,
+        #     process_eval=process_eval
+        # )
 
         # dump
         self._running_log["lang_acc"] =  data_dict["lang_acc"].item()
@@ -379,9 +379,19 @@ class Solver():
         self._running_log["ref_iou_rate_0.25"] = data_dict["ref_iou_rate_0.25"]
         self._running_log["ref_iou_rate_0.5"] = data_dict["ref_iou_rate_0.5"]
 
+        # self._running_log["lang_acc"] =  0
+        # self._running_log["ref_acc"] = 0
+        # self._running_log["obj_acc"] = 0
+        # self._running_log["pos_ratio"] = 0
+        # self._running_log["neg_ratio"] = 0
+        # self._running_log["ref_iou"] = 0
+        # self._running_log["ref_iou_rate_0.25"] = 0
+        # self._running_log["ref_iou_rate_0.5"] = 0
+    
 
-        self._running_log["iou_rate_0.25"] = data_dict["eval_iou25"]
-        self._running_log["iou_rate_0.5"] = data_dict["eval_iou5"]
+
+        self._running_log["iou_rate_0.25"] = 99#data_dict["eval_iou25"]
+        self._running_log["iou_rate_0.5"] = 99#data_dict["eval_iou5"]
 
         
     def _feed(self, dataloader, phase, epoch_id):
@@ -499,7 +509,7 @@ class Solver():
                     self._train_report(epoch_id)
 
                 # evaluation
-                if (self._global_iter_id+1) % self.val_step == 0:
+                if (self._global_iter_id) % self.val_step == 0:
                     print("evaluating...")
                     # val
                     self._feed(self.dataloader["val"], "val", epoch_id)
@@ -705,7 +715,6 @@ class Solver():
             val_neg_ratio=round(np.mean([v for v in self.log["val"]["neg_ratio"]]), 5),
             val_iou_rate_25=round(np.mean([v for v in self.log["val"]["iou_rate_0.25"]]), 5),
             val_iou_rate_5=round(np.mean([v for v in self.log["val"]["iou_rate_0.5"]]), 5),
-            val_ref_iou=round(np.mean([v for v in self.log["val"]["ref_iou"]]), 5),
             val_ref_iou_rate_25=round(np.mean([v for v in self.log["val"]["ref_iou_rate_0.25"]]), 5),
             val_ref_iou_rate_5=round(np.mean([v for v in self.log["val"]["ref_iou_rate_0.5"]]), 5)
         )
