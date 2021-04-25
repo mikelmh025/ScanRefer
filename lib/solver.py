@@ -491,12 +491,12 @@ class Solver():
             self.log[phase]["obj_acc"].append(self._running_log["obj_acc"])
             self.log[phase]["pos_ratio"].append(self._running_log["pos_ratio"])
             self.log[phase]["neg_ratio"].append(self._running_log["neg_ratio"])
-            # if self._running_log["iou_rate_0.25"] != 0:
-            self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
-            self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])     
-            self.log[phase]["ref_iou"].append(self._running_log["ref_iou"])  
-            self.log[phase]["ref_iou_rate_0.25"].append(self._running_log["ref_iou_rate_0.25"])  
-            self.log[phase]["ref_iou_rate_0.5"].append(self._running_log["ref_iou_rate_0.5"])             
+            if self._running_log["iou_rate_0.25"] != 0:
+                self.log[phase]["iou_rate_0.25"].append(self._running_log["iou_rate_0.25"])
+                self.log[phase]["iou_rate_0.5"].append(self._running_log["iou_rate_0.5"])     
+                self.log[phase]["ref_iou"].append(self._running_log["ref_iou"])  
+                self.log[phase]["ref_iou_rate_0.25"].append(self._running_log["ref_iou_rate_0.25"])  
+                self.log[phase]["ref_iou_rate_0.5"].append(self._running_log["ref_iou_rate_0.5"])             
 
             # report
             if phase == "train":
