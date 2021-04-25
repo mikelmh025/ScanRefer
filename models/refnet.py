@@ -58,11 +58,11 @@ class RefNet(nn.Module):
         # Vote aggregation and object proposal
         self.proposal = ProposalModule(num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling)
 
-        # if not no_reference:
-        #     # --------- LANGUAGE ENCODING ---------
-        #     # Encode the input descriptions into vectors
-        #     # (including attention and language classification)
-        #     # self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
+        if not no_reference:
+            # --------- LANGUAGE ENCODING ---------
+            # Encode the input descriptions into vectors
+            # (including attention and language classification)
+            self.lang = LangModule(num_class, use_lang_classifier, use_bidir, emb_size, hidden_size,attn,mask_aug)
 
         #     # --------- PROPOSAL MATCHING ---------
         #     # Match the generated proposals and select the most confident ones
@@ -107,30 +107,30 @@ class RefNet(nn.Module):
             #######################################
 
             # --------- LANGUAGE ENCODING ---------
-            #  Bert 
+                        #  Bert 
             bert_in = {}
-            # bert_in['input_ids'] = data_dict["bertTo_input"].squeeze(1)
-            # bert_in["token_type_ids"] = data_dict["bertTo_type"].squeeze(1)
-            # bert_in["attention_mask"] = data_dict["bertTo_mask"].squeeze(1)
-            # with torch.no_grad():
-            #     bert_out = self.model_bert(**bert_in)
+                        # bert_in['input_ids'] = data_dict["bertTo_input"].squeeze(1)
+                        # bert_in["token_type_ids"] = data_dict["bertTo_type"].squeeze(1)
+                        # bert_in["attention_mask"] = data_dict["bertTo_mask"].squeeze(1)
+                        # with torch.no_grad():
+                        #     bert_out = self.model_bert(**bert_in)
 
-            data_dict["bert_hidden"] = data_dict["bert_hidden"].squeeze(1)
-            data_dict["bert_poolar"] = data_dict["bert_poolar"].squeeze(1)
+            # data_dict["bert_hidden"] = data_dict["bert_hidden"].squeeze(1)
+            # data_dict["bert_poolar"] = data_dict["bert_poolar"].squeeze(1)
             
-            bert_out_hidden = self.Linear_bert_out1(data_dict["bert_hidden"].transpose(1,2))
-            bert_out_hidden = self.Linear_bert_out2(bert_out_hidden)
-            bert_out_hidden = self.Linear_bert_out3(bert_out_hidden).transpose(2,1)
-            data_dict["bert_out_hidden"] = bert_out_hidden
+            # bert_out_hidden = self.Linear_bert_out1(data_dict["bert_hidden"].transpose(1,2))
+            # bert_out_hidden = self.Linear_bert_out2(bert_out_hidden)
+            # bert_out_hidden = self.Linear_bert_out3(bert_out_hidden).transpose(2,1)
+            # data_dict["bert_out_hidden"] = bert_out_hidden
 
             
-            bert_out_pool = self.Linear_bert_out_pool1(data_dict["bert_poolar"].unsqueeze(2))
-            bert_out_pool = self.Linear_bert_out_pool2(bert_out_pool)
-            bert_out_pool = self.Linear_bert_out_pool3(bert_out_pool).squeeze(2)
-            data_dict["bert_out_pool"] = bert_out_pool
+            # bert_out_pool = self.Linear_bert_out_pool1(data_dict["bert_poolar"].unsqueeze(2))
+            # bert_out_pool = self.Linear_bert_out_pool2(bert_out_pool)
+            # bert_out_pool = self.Linear_bert_out_pool3(bert_out_pool).squeeze(2)
+            # data_dict["bert_out_pool"] = bert_out_pool
 
                 
-            # data_dict = self.lang(data_dict)
+            data_dict = self.lang(data_dict)
 
         #######################################
         #                                     #

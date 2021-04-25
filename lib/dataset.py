@@ -92,6 +92,7 @@ class ScannetReferenceDataset(Dataset):
         lang_len = lang_len if lang_len <= CONF.TRAIN.MAX_DES_LEN else CONF.TRAIN.MAX_DES_LEN
 
         # Bert Token
+        self.bert_emb = False
         if self.bert_emb:
             bert_hidden = self.lang_bert_token[scene_id][str(object_id)][ann_id]["last_hidden_state"]
             bert_poolar = self.lang_bert_token[scene_id][str(object_id)][ann_id]["pooler_output"]

@@ -47,13 +47,28 @@ class CombineModule(nn.Module):
             nn.BatchNorm1d(hidden_size),
             nn.Conv1d(hidden_size, 1, 1)
         )
+        self.num_proposals = 1024
         
     def forward(self, data_dict):
-        zeros = torch.zeros((data_dict["aggregated_vote_features"].shape[0],data_dict["aggregated_vote_features"].shape[1])).cuda()
-        ones = torch.ones((data_dict["bert_out_hidden"].shape[0],data_dict["bert_out_hidden"].shape[1])).cuda()
-        attention_mask = torch.cat([zeros,ones],dim=1)
+        # zeros = torch.zeros((data_dict["aggregated_vote_features"].shape[0],data_dict["aggregated_vote_features"].shape[1])).cuda()
+        # ones = torch.ones((data_dict["bert_out_hidden"].shape[0],data_dict["bert_out_hidden"].shape[1])).cuda()
+        # attention_mask = torch.cat([zeros,ones],dim=1)
 
-        comebine = torch.cat([data_dict["aggregated_vote_features"],data_dict["bert_out_hidden"]],dim=1).transpose(2,1)  # B,Dim, Size
+        # unpack outputs from language branch
+        lang_feat = data_dict["lang_emb"] # batch_size, lang_size
+        lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
+
+        # if self.mask_aug:
+        #     lang_feat_masked = data_dict["lang_emb_masked"] # batch_size, lang_size
+        #     lang_feat_masked = lang_feat_masked.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
+        #     features_masked = torch.clone(features)
+
+        ###########################################
+        # Fuse with language feature
+        comebine = torch.cat([data_dict["aggregated_vote_features"], lang_feat], dim=1).transpose(2,1)  # B,Dim, Size
+
+
+        # comebine = torch.cat([data_dict["aggregated_vote_features"],data_dict["bert_out_hidden"]],dim=1).transpose(2,1)  # B,Dim, Size
 
 
         x = comebine#.permute(1,0,2)        # Size, B, Dim
