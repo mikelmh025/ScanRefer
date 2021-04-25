@@ -715,6 +715,7 @@ class Solver():
             val_neg_ratio=round(np.mean([v for v in self.log["val"]["neg_ratio"]]), 5),
             val_iou_rate_25=round(np.mean([v for v in self.log["val"]["iou_rate_0.25"]]), 5),
             val_iou_rate_5=round(np.mean([v for v in self.log["val"]["iou_rate_0.5"]]), 5),
+            val_ref_iou=round(np.mean([v for v in self.log["val"]["ref_iou"]]), 5),
             val_ref_iou_rate_25=round(np.mean([v for v in self.log["val"]["ref_iou_rate_0.25"]]), 5),
             val_ref_iou_rate_5=round(np.mean([v for v in self.log["val"]["ref_iou_rate_0.5"]]), 5)
         )
