@@ -416,10 +416,11 @@ def get_eval(data_dict, config, reference, use_lang_classifier=False, use_oracle
         others.append(flag)
 
     # lang
-    if reference and use_lang_classifier:
-        data_dict["lang_acc"] = (torch.argmax(data_dict['lang_scores'], 1) == data_dict["object_cat"]).float().mean()
-    else:
-        data_dict["lang_acc"] = torch.zeros(1)[0].cuda()
+    # if reference and use_lang_classifier:
+    #     data_dict["lang_acc"] = (torch.argmax(data_dict['lang_scores'], 1) == data_dict["object_cat"]).float().mean()
+    # else:
+    #     data_dict["lang_acc"] = torch.zeros(1)[0].cuda()
+    data_dict["lang_acc"] = torch.zeros(1)[0].cuda()
 
     # store
     data_dict["ref_iou"] = ious

@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import math
 
 class CombineModule(nn.Module):
     def __init__(self, num_class, num_heading_bin, num_size_cluster, mean_size_arr, num_proposal, sampling,
@@ -17,6 +18,8 @@ class CombineModule(nn.Module):
         self.mean_size_arr = mean_size_arr
         self.num_proposal = 100#num_proposal
         self.sampling = sampling
+
+        
 
         self.sAttn1 = SA_Layer(channels)
         self.sAttn2 = SA_Layer(channels)
@@ -38,6 +41,7 @@ class CombineModule(nn.Module):
         self.bns3 = nn.BatchNorm1d(channels)
 
         hidden_size = channels
+        self.hidden_size = hidden_size
         self.match = nn.Sequential(
             nn.Conv1d(hidden_size, hidden_size, 1),
             nn.ReLU(),
@@ -48,6 +52,13 @@ class CombineModule(nn.Module):
             nn.Conv1d(hidden_size, 1, 1)
         )
         self.num_proposals = 1024
+
+        self.lang_conv = nn.Sequential(
+            nn.Conv1d(300, hidden_size, 1),
+            nn.ReLU()
+        )
+        self.lang_LN = nn.LayerNorm(self.hidden_size)
+        self.pe = PositionalEncoder(300,max_seq_len=126)
         
     def forward(self, data_dict):
         # zeros = torch.zeros((data_dict["aggregated_vote_features"].shape[0],data_dict["aggregated_vote_features"].shape[1])).cuda()
@@ -55,8 +66,15 @@ class CombineModule(nn.Module):
         # attention_mask = torch.cat([zeros,ones],dim=1)
 
         # unpack outputs from language branch
-        lang_feat = data_dict["lang_emb"] # batch_size, lang_size
-        lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
+        # lang_feat = data_dict["lang_emb"] # batch_size, lang_size
+        # lang_feat = lang_feat.unsqueeze(1).repeat(1, self.num_proposals, 1) # batch_size, num_proposals, lang_size
+
+        lang_feat = data_dict["lang_feat"]
+        lang_feat = self.pe(lang_feat)
+        
+
+        lang_feat = self.lang_conv(lang_feat.transpose(2,1)).transpose(2,1)
+        lang_feat = self.lang_LN(lang_feat)
 
         # if self.mask_aug:
         #     lang_feat_masked = data_dict["lang_emb_masked"] # batch_size, lang_size
@@ -142,6 +160,33 @@ class SA_Layer(nn.Module):
         # x_r = self.self_attn(x, x, value=x, attn_mask=src_mask)[0]
         x = x + self.dropout1(x_r)
         return x
+
+class PositionalEncoder(nn.Module):
+    def __init__(self, d_model, max_seq_len = 80):
+        super().__init__()
+        self.d_model = d_model
+        
+        # create constant 'pe' matrix with values dependant on 
+        # pos and i
+        pe = torch.zeros(max_seq_len, d_model)
+        for pos in range(max_seq_len):
+            for i in range(0, d_model, 2):
+                pe[pos, i] = \
+                math.sin(pos / (10000 ** ((2 * i)/d_model)))
+                pe[pos, i + 1] = \
+                math.cos(pos / (10000 ** ((2 * (i + 1))/d_model)))
+                
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+ 
+    
+    def forward(self, x):
+        # make embeddings relatively larger
+        x = x * math.sqrt(self.d_model)
+        #add constant to embedding
+        seq_len = x.shape[1]
+        x = x + self.pe[:,:seq_len]#Variable(self.pe[:,:seq_len],requires_grad=False).cuda()
+        return x.squeeze(0)
 
 
 if __name__=='__main__':

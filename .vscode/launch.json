@@ -43,7 +43,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--folder",
-                "outputs/2021-04-14_20-30-26",
+                "outputs/2021-04-26_00-02-07",
                 "--detection",
                 "--matchdet",
                 "--use_color",
@@ -88,7 +88,9 @@
                 "--cp_aug",
                 "0",
                 "--num_workers",
-                "1"
+                "1",
+                "--cp_aug",
+                "5"
             ]
         },
         {

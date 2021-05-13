@@ -17,8 +17,8 @@ from models.match_module import MatchModule
 
 from models.transformer_module import TransformerModule
 from models.combine_module import CombineModule
-from transformers import AutoModel, AutoTokenizer, BertTokenizer
-from transformers import BertModel
+# from transformers import AutoModel, AutoTokenizer, BertTokenizer
+# from transformers import BertModel
 
 # from models.matcher import build_matcher
 
@@ -130,7 +130,7 @@ class RefNet(nn.Module):
             # data_dict["bert_out_pool"] = bert_out_pool
 
                 
-            data_dict = self.lang(data_dict)
+            # data_dict = self.lang(data_dict)
 
         #######################################
         #                                     #

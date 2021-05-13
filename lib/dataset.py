@@ -12,7 +12,10 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt  
 import multiprocessing as mp
+import torch
+import torch.nn as nn
 from torch.utils.data import Dataset
+import math
 
 sys.path.append(os.path.join(os.getcwd(), "lib")) # HACK add the lib folder
 from lib.config import CONF
@@ -22,8 +25,8 @@ import random
 
 from collections import defaultdict 
 # import torch
-from transformers import AutoModel, AutoTokenizer, BertTokenizer
-from transformers import BertModel
+# from transformers import AutoModel, AutoTokenizer, BertTokenizer
+# from transformers import BertModel
 
 import torch
 # data setting
@@ -110,8 +113,6 @@ class ScannetReferenceDataset(Dataset):
         num_obj_add =  self.cp_aug
         neg_box = np.zeros((num_obj_add, 6))
         if self.cp_aug!=0 and self.split != 'test':
-        # TODO: change back
-        # if self.cp_aug!=0 :
     
             # NOTE: set size class as semantic class. Consider use size2class.
             size_classes = np.zeros((MAX_NUM_OBJ,))
@@ -474,6 +475,9 @@ class ScannetReferenceDataset(Dataset):
         with open(GLOVE_PICKLE, "rb") as f:
             glove = pickle.load(f)
 
+        pe = PositionalEncoder(300,max_seq_len=CONF.TRAIN.MAX_DES_LEN)
+
+
         lang = {}
         token_out = {}
         for data in self.scanrefer:
@@ -497,7 +501,7 @@ class ScannetReferenceDataset(Dataset):
             tokens = data["token"]
             embeddings = np.zeros((CONF.TRAIN.MAX_DES_LEN, 300))
             for token_id in range(CONF.TRAIN.MAX_DES_LEN):
-                if token_id < len(tokens):
+                if token_id < len(tokens):  
                     token = tokens[token_id]
                     if token in glove:
                         embeddings[token_id] = glove[token]
@@ -505,6 +509,7 @@ class ScannetReferenceDataset(Dataset):
                         embeddings[token_id] = glove["unk"]
 
             # store
+            
             lang[scene_id][object_id][ann_id] = embeddings
             token_out[scene_id][object_id][ann_id] = tokens
             # getting data for Analysis the language instances with other objects from same category in the same scene
@@ -807,3 +812,30 @@ class ScannetReferenceDataset(Dataset):
         bbox[:, :3] += factor
 
         return point_set, bbox
+
+class PositionalEncoder(nn.Module):
+    def __init__(self, d_model, max_seq_len = 80):
+        super().__init__()
+        self.d_model = d_model
+        
+        # create constant 'pe' matrix with values dependant on 
+        # pos and i
+        pe = torch.zeros(max_seq_len, d_model)
+        for pos in range(max_seq_len):
+            for i in range(0, d_model, 2):
+                pe[pos, i] = \
+                math.sin(pos / (10000 ** ((2 * i)/d_model)))
+                pe[pos, i + 1] = \
+                math.cos(pos / (10000 ** ((2 * (i + 1))/d_model)))
+                
+        pe = pe.unsqueeze(0)
+        self.register_buffer('pe', pe)
+ 
+    
+    def forward(self, x):
+        # make embeddings relatively larger
+        x = x * math.sqrt(self.d_model)
+        #add constant to embedding
+        seq_len = x.shape[1]
+        x = x + self.pe[:,:seq_len]#Variable(self.pe[:,:seq_len],requires_grad=False).cuda()
+        return x.squeeze(0)

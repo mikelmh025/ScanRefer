@@ -21,8 +21,8 @@ from lib.config import CONF
 from models.refnet import RefNet
 
 import torch.multiprocessing as mp
-from transformers import AutoModel, AutoTokenizer, BertTokenizer
-from transformers import BertModel
+# from transformers import AutoModel, AutoTokenizer, BertTokenizer
+# from transformers import BertModel
 
 SCANREFER_TRAIN = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_train.json")))
 SCANREFER_VAL = json.load(open(os.path.join(CONF.PATH.DATA, "ScanRefer_filtered_val.json")))
